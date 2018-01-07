@@ -37,9 +37,17 @@ public:
     }
   };
 
+  static shared_ptr<Simulation> create() {
+    return std::make_shared<Simulation>();
+  }
   Simulation() { printf("sim starting\n"); }
   ~Simulation() { printf("sim ended\n"); }
-  shared_ptr<Process> start_process(shared_ptr<Process> p);
+  shared_ptr<Process> run_process(shared_ptr<Process> p);
+
+  template< class T, class... Args > shared_ptr<Process> start_process( Args&&... args ) {
+    return run_process(std::make_shared<T>(shared_from_this(), args...));
+  }
+
   shared_ptr<Event> timeout(double delay);
 
 private:
@@ -128,7 +136,7 @@ void Event::fire() {
   }
 }
 
-shared_ptr<Process> Simulation::start_process(shared_ptr<Process> p) {
+shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
   p->resume();
   return p;
 }
