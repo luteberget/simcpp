@@ -32,19 +32,18 @@ public:
 
     bool operator<(const QueuedEvent &b) const {
       if (this->time != b.time)
-        return this->time < b.time;
-      return this->id < b.id;
+        return this->time > b.time;
+      return this->id > b.id;
     }
   };
 
   static shared_ptr<Simulation> create() {
     return std::make_shared<Simulation>();
   }
-  Simulation() { printf("sim starting\n"); }
-  ~Simulation() { printf("sim ended\n"); }
   shared_ptr<Process> run_process(shared_ptr<Process> p);
 
-  template< class T, class... Args > shared_ptr<Process> start_process( Args&&... args ) {
+  template <class T, class... Args>
+  shared_ptr<Process> start_process(Args &&... args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
@@ -66,7 +65,10 @@ public:
     while (this->has_next() && this->peek_next_time() <= target) {
       this->step();
     }
+    this->now = target;
   }
+
+  void advance_to(shared_ptr<Process> p);
 
   void run() {
     while (this->step())
@@ -88,10 +90,13 @@ public:
       : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
 
   void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
-  bool is_triggered() { return this->value != -1; }
   bool is_processed() { return this->listeners == nullptr; }
   int get_value() { return this->value; }
   void fire();
+
+  bool is_triggered() { return this->value != -1; }
+  bool is_success() { return this->value == 1; }
+  bool is_failed() { return this->value == 2; }
 };
 
 class Process : public Event,
@@ -100,9 +105,17 @@ class Process : public Event,
 public:
   Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
   void resume();
+  void abort();
+  virtual void Aborted() {};
 };
 
+void Process::abort() {
+  this->value = 2; //?
+  Aborted();
+}
+
 void Process::resume() {
+  if(this->value == 2) /* aborted */ return;
   if (!Run()) {
     // Process finished
     this->value = 0;
@@ -125,12 +138,16 @@ bool Simulation::step() {
   // printf("Stepping from \t%g to \t%g\n",this->now,queuedEvent.time);
   this->now = queuedEvent.time;
   auto event = queuedEvent.event;
+  // TODO Does this keep the shared pointer in scope, making the 
+  // automatic memory management useless?
+  // TODO Is this whole approach limited by the stack size?
   event->fire();
   return true;
 }
 
 void Event::fire() {
   auto listeners = std::move(this->listeners);
+  this->listeners = nullptr;
   for (auto proc : *listeners) {
     proc->resume();
   }
@@ -146,5 +163,29 @@ shared_ptr<Event> Simulation::timeout(double delay) {
   this->schedule(ev, delay);
   return ev;
 }
+
+// ALLOF event
+class AllOf : public Process {
+  vector<shared_ptr<Event>> v;
+  size_t i = 0;
+  public:
+    AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim), v(v) {}
+    virtual bool Run() override {
+      PT_BEGIN();
+      while(this->i < this->v.size()) {
+        if(!this->v[i]->is_triggered()) {
+          PROC_WAIT_FOR(this->v[i]);
+          i++;
+        }
+      }
+      PT_END();
+    }
+};
+
+  void Simulation::advance_to(shared_ptr<Process> p) {
+    while (!p->is_triggered() && this->has_next()) { 
+      this->step();
+    }
+  }
 
 #endif
