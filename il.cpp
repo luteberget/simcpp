@@ -22,9 +22,9 @@ struct Link {
   double length;
 };
 
-Link mk_link(const LinkSpec& ls, const vector<InfrastructureObject*>& objIndex) {
+Link mk_link(const LinkSpec& ls, const vector<unique_ptr<InfrastructureObject>>& objIndex) {
   Link l;
-  l.obj = objIndex[ls.index];
+  l.obj = objIndex[ls.index].get();
   l.length = ls.length;
   return l;
 }
@@ -89,7 +89,7 @@ public:
   Resource(Sim s) : EnvObj(s) {}
 };
 
-class TVD : public Resource {
+class TVD : public Resource, public InfrastructureObject {
   OBSERVABLE_PROPERTY(bool, occupied, false)
 public:
   TVD(Sim s) : Resource(s) {}
@@ -135,7 +135,7 @@ public:
   Switch(Sim s, SwitchState state) : Resource(s), state(state) {}
 
   Link left, right, entry; Direction splitDir;
-  void set_next(const ISObjSpec& spec, const vector<InfrastructureObject*>& objs) {
+  void set_next(const ISObjSpec& spec, const vector<unique_ptr<InfrastructureObject>>& objs) {
     if(spec.n_up == 2) {
       this->left  = mk_link(spec.up[0], objs);
       this->right = mk_link(spec.up[1], objs);
@@ -284,6 +284,9 @@ private:
         PROC_WAIT_FOR(turn_switches());
       }
       // Release triggers
+      for(auto& t : this->route->releases) {
+        this->sim->start_process<ReleaseTrigger>(t.first,t.second);
+      }
       // Green entry signal
       this->route->open_signal();
       PT_END();
@@ -331,8 +334,7 @@ private:
 class World {
 public:
   // Infrastructure
-  vector<InfrastructureObject*> graphObjs;
-  std::unordered_map<string, TVD*> tvds;
+  vector<unique_ptr<InfrastructureObject>> objects;
 
   // Interlocking
   vector<Route> routes;
@@ -348,30 +350,20 @@ struct Plan {
 };
 
 void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
-  vector<InfrastructureObject*> graphObjs;
-  std::unordered_map<string,TVD*> tvdmap;
+  vector<unique_ptr<InfrastructureObject>> graphObjs;
   for(auto& spec : is.driveGraph) {
     if(spec.type == ISObjSpec::ISObjType::Signal) {
-      graphObjs.push_back(new Signal(sim, spec.signal.dir));
+      graphObjs.emplace_back(new Signal(sim, spec.signal.dir));
     } else if (spec.type == ISObjSpec::ISObjType::Detector) {
-      auto d = new Detector();
-      if(tvdmap.find(spec.detector.upTVD_name) == tvdmap.end()) {
-        tvdmap[spec.detector.upTVD_name] = new TVD(sim);
-      }
-      if(tvdmap.find(spec.detector.downTVD_name) == tvdmap.end()) {
-        tvdmap[spec.detector.downTVD_name] = new TVD(sim);
-      }
-      d->upTVD = tvdmap[spec.detector.upTVD_name];
-      d->downTVD = tvdmap[spec.detector.downTVD_name];
-      graphObjs.push_back(d);
+      graphObjs.emplace_back(new Detector());
     } else if (spec.type == ISObjSpec::ISObjType::Sight) {
-      graphObjs.push_back(new Sight((Signal*)graphObjs[spec.sight.signal_index]));
+      graphObjs.emplace_back(new Sight((Signal*)graphObjs[spec.sight.signal_index].get()));
     } else if (spec.type == ISObjSpec::ISObjType::Switch) {
-      graphObjs.push_back(new Switch(sim, spec.sw.default_state));
+      graphObjs.emplace_back(new Switch(sim, spec.sw.default_state));
     } else if (spec.type == ISObjSpec::ISObjType::Boundary) {
-      graphObjs.push_back(new Boundary());
+      graphObjs.emplace_back(new Boundary());
     } else if (spec.type == ISObjSpec::ISObjType::Stop) {
-      graphObjs.push_back(new Stop());
+      graphObjs.emplace_back(new Stop());
     } else {
       throw; 
     }
@@ -382,34 +374,34 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
     if(spec.n_up >= 1) graphObjs[i]->up = mk_link(spec.up[0], graphObjs);
     if(spec.n_down >= 1) graphObjs[i]->down = mk_link(spec.down[0], graphObjs);
 
+    // Special case for switches, which have three (or more) connections.
     if(spec.type == ISObjSpec::ISObjType::Switch) {
-      ((Switch*)graphObjs[i])->set_next(spec,graphObjs);
+      ((Switch*)graphObjs[i].get())->set_next(spec,graphObjs);
     }
   }
 
-  world.graphObjs = std::move(graphObjs);
-  world.tvds = std::move(tvdmap);
+  world.objects = std::move(graphObjs);
 }
 
 void mk_routes(Sim sim, World& world, const InterlockingSpec& il) {
   for(auto& route : il.routes) {
     vector<pair<TVD*,vector<Resource*>>> releases;
     for(auto& spec : route.releases) {
-      //vector<Resource*> res;
-      //for(auto& ridx : spec.resources)  {}
-      //releases.push_back(make_pair(world.tvds[spec.trigger_TVD_name], std::move(res)));
+      vector<Resource*> res;
+      for(auto& ridx : spec.resources) res.push_back((Resource*)world.objects[ridx].get());
+      releases.push_back(make_pair((TVD*)world.objects[spec.trigger].get(), std::move(res)));
     }
     Signal* entrySignal = nullptr;
     if(route.entry_signal >= 0) {
-      entrySignal = (Signal*)world.graphObjs[route.entry_signal];
+      entrySignal = (Signal*)world.objects[route.entry_signal].get();
     }
     vector<pair<Switch*,SwitchState>> swPos;
     for(auto& sw : route.switches) {
-      swPos.push_back(make_pair((Switch*)world.graphObjs[sw.first],sw.second));
+      swPos.push_back(make_pair((Switch*)world.objects[sw.first].get(),sw.second));
     }
     vector<TVD*> tvds;
-    for(auto& tvd_name : route.tvds) {
-      tvds.push_back((TVD*)world.tvds[tvd_name]);
+    for(auto& tvd : route.tvds) {
+      tvds.push_back((TVD*)world.objects[tvd].get());
     }
     world.routes.emplace_back(Route(sim,entrySignal,swPos,tvds,releases));
   }
@@ -427,7 +419,7 @@ void test_plan(const InfrastructureSpec &is, const InterlockingSpec &il,
                const Plan &p) {
   auto sim = Simulation::create();
   vector<shared_ptr<Process>> trains;
-  World world; // = create_world(sim,is,il);
+  World world = create_world(sim,is,il);
   for (auto &i : p.activations) {
     if (i.first == Plan::PlanItemType::Route) {
       sim->advance_to(world.routes[i.second].activate());
@@ -442,38 +434,7 @@ void test_plan(const InfrastructureSpec &is, const InterlockingSpec &il,
 
 int main() {
   auto sim = Simulation::create();
-  World world;
-  //world.tvds.emplace_back(TVD(sim));
-  //world.switches.emplace_back(Switch(sim, SwitchState::Left));
-  //world.switches.emplace_back(Switch(sim, SwitchState::Left));
-  //world.switches[0].turn(SwitchState::Right);
-  //sim->advance_by(1);
-  //world.switches[1].turn(SwitchState::Right);
-  //sim->advance_by(1);
-  //world.switches[0].turn(SwitchState::Left);
   sim->run();
   return 0;
 }
-
-//
-// struct InfrastructureSpec {
-//   vector<TrackSpec> tracks;
-//   vector<pair<vector<size_t>, vector<size_t>>> nodes;
-//   vector<SignalSpec> signals;
-//   vector<SightSpec> sight;
-//   vector<DetectorSpec> detectors;
-// };
-
-// enum class InfrastructureObjectType { Boundary, Switch, Detector, SightPoint,
-// Other /* specified stopping points */ };
-// struct Position {
-//   InfrastructureObjectType type;
-//   InfrastructureObject* obj;
-// };
-//
-// class Infrastructure {
-//   std::unordered_map<Position,vector<Position>> graph;
-//   public:
-//     Position next(Direction dir, Position pos);
-// };
 
