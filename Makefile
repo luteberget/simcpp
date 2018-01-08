@@ -1,4 +1,4 @@
-il: il.cpp simcpp.h simobj.h
+il: il.cpp simcpp.h simobj.h il_inputspec.h
 	g++ -Wall -std=c++11 il.cpp -o il
 
 all: example-minimal example-twocars
