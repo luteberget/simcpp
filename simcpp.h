@@ -153,6 +153,36 @@ shared_ptr<Event> Simulation::timeout(double delay) {
   return ev;
 }
 
+class AnyOf : public Process {
+public:
+  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim) {
+    for(auto& e : v) e->add_handler(shared_from_this());
+  }
+  virtual bool Run() override {
+      PT_BEGIN();
+      PT_YIELD();
+      // Any time we get called back, we are finished.
+      PT_END();
+  }
+};;
+
+// ALLOF event
+class AllOf : public Process {
+  vector<shared_ptr<Event>> v;
+  size_t i = 0;
+  public:
+    AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim), v(v) {}
+    virtual bool Run() override {
+      PT_BEGIN();
+      while(this->i < this->v.size()) {
+        if(!this->v[i]->is_triggered()) {
+          PROC_WAIT_FOR(this->v[i]);
+          i++;
+        }
+      }
+      PT_END();
+    }
+};
 
   void Simulation::advance_to(shared_ptr<Process> p) {
     while (!p->is_triggered() && this->has_next()) { 
