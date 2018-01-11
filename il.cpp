@@ -94,11 +94,11 @@ public:
 
   enum class TargetReason { Target, ReachNode, ClearNode, NoTrack };
 
-  pair<StepReason,double> node_dist() {
+  pair<TargetReason,double> node_dist() {
     auto link = this->location.obj->next(this->dir);
-    if(link == nullptr) return { StepReason::NoTrack, 0.0 };
+    if(link == nullptr) return { TargetReason::NoTrack, 0.0 };
     else {
-      return link->length - this->location.offset;
+      return { TargetReason::ReachNode, link->length - this->location.offset};
     }
   }
 
@@ -109,14 +109,15 @@ public:
     this->params = spec.params;
     this->targets.vmax = LINESPEED;
     this->location.obj->arrive_front(*this); // At a boundary, nothing happens
-    this->nodesUnderTrain.push_back({this->location.obj, this->params->length});
+    this->nodesUnderTrain.push_back({this->location.obj, this->params.length});
     this->last_t = s->get_now();
   }
 
 
   shared_ptr<Process> until_discrete() {
     vector<shared_ptr<Event>> evs;
-    auto step = trainStep(this->params, this->node_dist(),
+    auto nodestep = this->node_dist();
+    auto step = trainStep(this->params, nodestep.second,
         this->velocity, this->targets);
     this->action = step.action;
 
@@ -146,7 +147,8 @@ public:
   }
 
   void update_discrete() {
-      if(this->node_dist() < 1e-10) {
+      auto nodestep = this->node_dist();
+      if(nodestep.second < 1e-10) {
         auto link = this->location.obj->next(this->dir);
         if(link != nullptr) {
           this->location.obj     = link->obj;
