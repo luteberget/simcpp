@@ -37,9 +37,16 @@ public:
     }
   };
 
-  Simulation() { printf("sim starting\n"); }
-  ~Simulation() { printf("sim ended\n"); }
-  shared_ptr<Process> start_process(shared_ptr<Process> p);
+  static shared_ptr<Simulation> create() {
+    return std::make_shared<Simulation>();
+  }
+  shared_ptr<Process> run_process(shared_ptr<Process> p);
+
+  template <class T, class... Args>
+  shared_ptr<Process> start_process(Args &&... args) {
+    return run_process(std::make_shared<T>(shared_from_this(), args...));
+  }
+
   shared_ptr<Event> timeout(double delay);
 
 private:
@@ -60,6 +67,8 @@ public:
     }
     this->now = target;
   }
+
+  void advance_to(shared_ptr<Process> p);
 
   void run() {
     while (this->step())
@@ -118,18 +127,22 @@ bool Simulation::step() {
   // printf("Stepping from \t%g to \t%g\n",this->now,queuedEvent.time);
   this->now = queuedEvent.time;
   auto event = queuedEvent.event;
+  // TODO Does this keep the shared pointer in scope, making the 
+  // automatic memory management useless?
+  // TODO Is this whole approach limited by the stack size?
   event->fire();
   return true;
 }
 
 void Event::fire() {
   auto listeners = std::move(this->listeners);
+  this->listeners = nullptr;
   for (auto proc : *listeners) {
     proc->resume();
   }
 }
 
-shared_ptr<Process> Simulation::start_process(shared_ptr<Process> p) {
+shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
   p->resume();
   return p;
 }
@@ -139,5 +152,12 @@ shared_ptr<Event> Simulation::timeout(double delay) {
   this->schedule(ev, delay);
   return ev;
 }
+
+
+  void Simulation::advance_to(shared_ptr<Process> p) {
+    while (!p->is_triggered() && this->has_next()) { 
+      this->step();
+    }
+  }
 
 #endif
