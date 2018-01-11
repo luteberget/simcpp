@@ -31,11 +31,11 @@ public:
     PT_BEGIN();
 
     printf("Starting car C1.\n");
-    PROC_WAIT_FOR(sim->start_process(std::make_shared<Car>(sim, "C1")));
+    PROC_WAIT_FOR(sim->start_process<Car>("C1"));
     printf("Finished car C1.\n");
 
     printf("Starting car C2.\n");
-    PROC_WAIT_FOR(sim->start_process(std::make_shared<Car>(sim, "C2")));
+    PROC_WAIT_FOR(sim->start_process<Car>("C2"));
     printf("Finished car C2.\n");
 
     PT_END();
@@ -43,10 +43,9 @@ public:
 };
 
 int main() {
-  std::shared_ptr<Simulation> sim = std::make_shared<Simulation>();
-  sim->start_process(std::make_shared<TwoCars>(sim));
-  // sim->advance_by(500);
-  sim->run();
+  auto sim = Simulation::create();
+  sim->start_process<TwoCars>();
+  sim->advance_by(10000);
 
   return 0;
 }

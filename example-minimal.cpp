@@ -16,8 +16,8 @@ public:
 };
 
 int main() {
-  std::shared_ptr<Simulation> sim = std::make_shared<Simulation>();
-  sim->start_process(std::make_shared<Car>(sim));
+  auto sim = Simulation::create();
+  sim->start_process<Car>();
   sim->run();
 
   return 0;
