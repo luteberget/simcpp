@@ -32,8 +32,8 @@ public:
 
     bool operator<(const QueuedEvent &b) const {
       if (this->time != b.time)
-        return this->time < b.time;
-      return this->id < b.id;
+        return this->time > b.time;
+      return this->id > b.id;
     }
   };
 
@@ -58,6 +58,7 @@ public:
     while (this->has_next() && this->peek_next_time() <= target) {
       this->step();
     }
+    this->now = target;
   }
 
   void run() {
