@@ -115,10 +115,15 @@ void Process::abort() {
 }
 
 void Process::resume() {
-  if(this->value == 2) /* aborted */ return;
-  if (!Run()) {
+  // Is the process already finished?
+  if(this->is_triggered()) return;
+
+  bool run = Run();
+
+  // Did the process finish now?
+  if (!run) {
     // Process finished
-    this->value = 0;
+    this->value = 1;
     this->sim->schedule(shared_from_this());
   }
 }
@@ -163,6 +168,19 @@ shared_ptr<Event> Simulation::timeout(double delay) {
   this->schedule(ev, delay);
   return ev;
 }
+
+class AnyOf : public Process {
+public:
+  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim) {
+    for(auto& e : v) e->add_handler(shared_from_this());
+  }
+  virtual bool Run() override {
+      PT_BEGIN();
+      PT_YIELD();
+      // Any time we get called back, we are finished.
+      PT_END();
+  }
+};;
 
 // ALLOF event
 class AllOf : public Process {

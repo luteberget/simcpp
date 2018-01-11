@@ -1,3 +1,4 @@
+#include "traindynamics.h"
 #include <string>
 #include <vector>
 
@@ -9,7 +10,18 @@ using std::make_pair;
 enum class Direction { Up, Down };
 enum class SwitchState { Left, Right, Unknown };
 
-struct TrainRunSpec {};
+struct TrainLocSpec {
+  size_t obj;
+  double offset;
+};
+
+struct TrainRunSpec {
+  LinearTrainParams params;
+  Direction startDir;
+  TrainLocSpec startLoc;
+  vector<pair<TrainLocSpec,double>> stops;
+  TrainLocSpec endLoc;
+};
 
 struct SwitchSpec {
   SwitchState default_state = SwitchState::Left;
@@ -26,6 +38,7 @@ struct DetectorSpec {
 
 struct SightSpec {
   size_t signal_index;
+  double distance;
 };
 
 struct LinkSpec {
@@ -65,6 +78,7 @@ struct RouteSpec {
   vector<size_t> tvds;
   vector<pair<size_t,SwitchState>> switches;
   vector<ReleaseSpec> releases;
+  double length;
 };
 
 struct InterlockingSpec {

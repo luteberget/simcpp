@@ -3,8 +3,10 @@
 #include <utility>
 #include <cmath>
 #include <string>
+#include <limits>
 #include <unordered_map>
 #include "il_inputspec.h"
+#include "traindynamics.h"
 
 using std::pair;
 using std::make_pair;
@@ -15,21 +17,34 @@ template <typename T> int sgn(T val) { return (T(0) < val) - (val < T(0)); }
 typedef shared_ptr<Simulation> Sim;
 
 class Train;
-class InfrastructureObject;
+class ISObj;
+
+struct TrainLoc {
+  ISObj* obj;
+  double offset;
+};
+
+struct TrainRun {
+  LinearTrainParams params;
+  Direction startDir;
+  TrainLoc startLoc;
+  vector<pair<TrainLoc, double>> stops;
+  TrainLoc endLoc;
+};
 
 struct Link {
-  InfrastructureObject* obj = nullptr;
+  ISObj* obj = nullptr;
   double length;
 };
 
-Link mk_link(const LinkSpec& ls, const vector<unique_ptr<InfrastructureObject>>& objIndex) {
+Link mk_link(const LinkSpec& ls, const vector<unique_ptr<ISObj>>& objIndex) {
   Link l;
   l.obj = objIndex[ls.index].get();
   l.length = ls.length;
   return l;
 }
 
-class InfrastructureObject {
+class ISObj {
 public:
   Link down;
   Link up;
@@ -45,40 +60,145 @@ public:
   }
 };
 
-class Signal : protected EnvObj, public InfrastructureObject {
+class Signal : protected EnvObj, public ISObj {
 public:
   Direction dir;
   Signal(Sim s, Direction dir) : EnvObj(s),dir(dir) {}
   OBSERVABLE_PROPERTY(bool, green, false)
+  OBSERVABLE_PROPERTY(double, authority, 0.0)
 };
 
-class Boundary : public InfrastructureObject {
+class Boundary : public ISObj {
 };
 
-class Stop : public InfrastructureObject {
+class Stop : public ISObj {
 };
 
 class Train : public Process {
-  vector<Signal *> can_see;
-  Direction dir = Direction::Up;
+  vector<pair<Signal *,double>> can_see;
+  TrainRun runSpec;
+  Direction dir;
+  TrainLoc location;
+  LinearTrainParams params;
+  double velocity;
+  LinearTrainSpeedRestrictions targets;
+  const double LINESPEED = 36.0;
+  LinearTrainStep::Action action = LinearTrainStep::Action::Coast;
+  double last_t;
+  double authority = 0.0;
+  vector<pair<ISObj*, double>> nodesUnderTrain;
 
 public:
-  void add_sight(Signal* s) { can_see.push_back(s); }
+  void add_sight(Signal* s, double d) { this->can_see.push_back(make_pair(s,d)); }
   Direction get_dir() { return this->dir; }
-  Train(Sim s, TrainRunSpec spec) : Process(s) {}
+
+  enum class TargetReason { Target, ReachNode, ClearNode, NoTrack };
+
+  pair<StepReason,double> node_dist() {
+    auto link = this->location.obj->next(this->dir);
+    if(link == nullptr) return { StepReason::NoTrack, 0.0 };
+    else {
+      return link->length - this->location.offset;
+    }
+  }
+
+  Train(Sim s, TrainRun spec) : Process(s) {
+    this->runSpec = spec;
+    this->location = spec.startLoc;
+    this->dir = spec.startDir;
+    this->params = spec.params;
+    this->targets.vmax = LINESPEED;
+    this->location.obj->arrive_front(*this); // At a boundary, nothing happens
+    this->nodesUnderTrain.push_back({this->location.obj, this->params->length});
+    this->last_t = s->get_now();
+  }
+
+
+  shared_ptr<Process> until_discrete() {
+    vector<shared_ptr<Event>> evs;
+    auto step = trainStep(this->params, this->node_dist(),
+        this->velocity, this->targets);
+    this->action = step.action;
+
+    for(auto& sig : this->can_see) {
+      evs.push_back(sig.first->authority_event);
+    }
+
+    if(step.dt > 1e-10) {
+      evs.push_back(this->sim->timeout(step.dt));
+    }
+
+    return this->sim->start_process<AnyOf>(evs);
+  }
+
+  void update_continuous() {
+      double dt = this->sim->get_now() - this->last_t;
+      auto dx_v = trainUpdate(this->params, this->velocity, {this->action, dt});
+
+      auto dx = dx_v.first;
+      auto new_v = dx_v.second;
+
+      this->velocity         = new_v;
+      this->location.offset += dx;
+
+      // Distance to sighted signals
+      for(auto& see : this->can_see) see.second -= dx;
+  }
+
+  void update_discrete() {
+      if(this->node_dist() < 1e-10) {
+        auto link = this->location.obj->next(this->dir);
+        if(link != nullptr) {
+          this->location.obj     = link->obj;
+          this->location.offset -= link->length;
+          this->location.obj->arrive_front(*this);
+        }
+      }
+  }
+
+  void update_targets() {
+    // Start with known authority
+    double signal_authority = this->authority;
+
+    // Update with signal information
+    bool updated;
+    do {
+      updated = false;
+      for(auto& s : this->can_see) {
+        if(s.second - signal_authority <= 1e-10) {
+          signal_authority = std::max(signal_authority, s.second + s.first->get_authority());
+          updated = true;
+        }
+      }
+    } while(updated);
+
+    // Write back to train state. (remember authority even if we pass the signal).
+    this->authority = signal_authority;
+    printf("Update train targets: authority=%g\n",this->authority);
+    this->targets.ahead.clear();
+    this->targets.ahead.push_back({this->authority,0.0});
+  }
+
   bool Run() override {
     PT_BEGIN();
+    while(true) {
+      this->update_targets();
+      PROC_WAIT_FOR(this->until_discrete());
+      this->update_continuous();
+      this->update_discrete();
+    }
     PT_END();
   }
 };
 
 
-class Sight : public InfrastructureObject{
+class Sight : public ISObj{
+  Signal* sig;
+  double dist;
   public:
-    Signal* sig;
-    Sight(Signal* sig) :sig(sig) {}
+    Sight(Signal* sig, double dist) :sig(sig),dist(dist) {}
     void arrive_front(Train& t) override { 
-      if(t.get_dir() == sig->dir) t.add_sight(sig);
+      if(t.get_dir() == this->sig->dir) t.add_sight(this->sig,this->dist);
     }
     
 };
@@ -89,13 +209,13 @@ public:
   Resource(Sim s) : EnvObj(s) {}
 };
 
-class TVD : public Resource, public InfrastructureObject {
+class TVD : public Resource, public ISObj {
   OBSERVABLE_PROPERTY(bool, occupied, false)
 public:
   TVD(Sim s) : Resource(s) {}
 };
 
-class Detector : public InfrastructureObject {
+class Detector : public ISObj {
 public:
   TVD *upTVD;
   TVD *downTVD;
@@ -115,7 +235,7 @@ public:
 };
 
 
-class Switch : public Resource, public InfrastructureObject {
+class Switch : public Resource, public ISObj {
 private:
   double position = 0.0;
   shared_ptr<Process> turning;
@@ -135,7 +255,7 @@ public:
   Switch(Sim s, SwitchState state) : Resource(s), state(state) {}
 
   Link left, right, entry; Direction splitDir;
-  void set_next(const ISObjSpec& spec, const vector<unique_ptr<InfrastructureObject>>& objs) {
+  void set_next(const ISObjSpec& spec, const vector<unique_ptr<ISObj>>& objs) {
     if(spec.n_up == 2) {
       this->left  = mk_link(spec.up[0], objs);
       this->right = mk_link(spec.up[1], objs);
@@ -214,12 +334,13 @@ class Route : protected EnvObj {
   vector<TVD *> tvds;
   Signal *entrySignal;
   vector<ReleaseDef> releases;
+  double length;
 
 public:
   Route(Sim s, Signal *entrySignal, vector<pair<Switch *, SwitchState>> swPos,
-        vector<TVD *> tvds, vector<ReleaseDef> releases)
+        vector<TVD *> tvds, vector<ReleaseDef> releases,double length)
       : EnvObj(s), switchPositions(swPos), tvds(tvds),
-        entrySignal(entrySignal), releases(releases) {}
+        entrySignal(entrySignal), releases(releases), length(length) {}
 
   shared_ptr<Process> activate() {
     return this->env->start_process<RouteActivation>(this);
@@ -229,9 +350,9 @@ private:
   bool resources_available() {
     bool available = true;
     for (auto &t : this->tvds)
-      available &= t->get_allocated();
+      available &= !t->get_allocated();
     for (auto &s : this->switchPositions)
-      available &= s.first->get_allocated();
+      available &= !s.first->get_allocated();
     return available;
   }
 
@@ -304,6 +425,7 @@ private:
       PT_BEGIN();
       PROC_WAIT_FOR(tvd->occupied_event);
       sig->set_green(false);
+      sig->set_authority(0.0);
       PT_END();
     }
   };
@@ -327,6 +449,7 @@ private:
 
   shared_ptr<Event> open_signal() {
     this->entrySignal->set_green(true);
+    this->entrySignal->set_authority(this->length);
     return this->env->start_process<CatchSignal>(entrySignal, tvds[0]);
   }
 };
@@ -334,7 +457,7 @@ private:
 class World {
 public:
   // Infrastructure
-  vector<unique_ptr<InfrastructureObject>> objects;
+  vector<unique_ptr<ISObj>> objects;
 
   // Interlocking
   vector<Route> routes;
@@ -350,14 +473,14 @@ struct Plan {
 };
 
 void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
-  vector<unique_ptr<InfrastructureObject>> graphObjs;
+  vector<unique_ptr<ISObj>> graphObjs;
   for(auto& spec : is.driveGraph) {
     if(spec.type == ISObjSpec::ISObjType::Signal) {
       graphObjs.emplace_back(new Signal(sim, spec.signal.dir));
     } else if (spec.type == ISObjSpec::ISObjType::Detector) {
       graphObjs.emplace_back(new Detector());
     } else if (spec.type == ISObjSpec::ISObjType::Sight) {
-      graphObjs.emplace_back(new Sight((Signal*)graphObjs[spec.sight.signal_index].get()));
+      graphObjs.emplace_back(new Sight((Signal*)graphObjs[spec.sight.signal_index].get(), spec.sight.distance));
     } else if (spec.type == ISObjSpec::ISObjType::Switch) {
       graphObjs.emplace_back(new Switch(sim, spec.sw.default_state));
     } else if (spec.type == ISObjSpec::ISObjType::Boundary) {
@@ -403,7 +526,7 @@ void mk_routes(Sim sim, World& world, const InterlockingSpec& il) {
     for(auto& tvd : route.tvds) {
       tvds.push_back((TVD*)world.objects[tvd].get());
     }
-    world.routes.emplace_back(Route(sim,entrySignal,swPos,tvds,releases));
+    world.routes.emplace_back(Route(sim,entrySignal,swPos,tvds,releases,route.length));
   }
 }
 
@@ -424,8 +547,9 @@ void test_plan(const InfrastructureSpec &is, const InterlockingSpec &il,
     if (i.first == Plan::PlanItemType::Route) {
       sim->advance_to(world.routes[i.second].activate());
     } else if (i.first == Plan::PlanItemType::Train) {
-      auto proc = sim->start_process<Train>(p.trains[i.second]);
-      trains.push_back(proc);
+      // TODO convert from TrainRunSpec to TrainRun
+      //auto proc = sim->start_process<Train>(p.trains[i.second]);
+      //trains.push_back(proc);
     }
   }
   sim->run();
