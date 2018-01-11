@@ -90,10 +90,13 @@ public:
       : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
 
   void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
-  bool is_triggered() { return this->value != -1; }
   bool is_processed() { return this->listeners == nullptr; }
   int get_value() { return this->value; }
   void fire();
+
+  bool is_triggered() { return this->value != -1; }
+  bool is_success() { return this->value == 1; }
+  bool is_failed() { return this->value == 2; }
 };
 
 class Process : public Event,
@@ -102,12 +105,25 @@ class Process : public Event,
 public:
   Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
   void resume();
+  void abort();
+  virtual void Aborted() {};
 };
 
+void Process::abort() {
+  this->value = 2; //?
+  Aborted();
+}
+
 void Process::resume() {
-  if (!Run()) {
+  // Is the process already finished?
+  if(this->is_triggered()) return;
+
+  bool run = Run();
+
+  // Did the process finish now?
+  if (!run) {
     // Process finished
-    this->value = 0;
+    this->value = 1;
     this->sim->schedule(shared_from_this());
   }
 }
