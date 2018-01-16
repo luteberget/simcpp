@@ -18,13 +18,14 @@ struct TrainLocSpec {
 struct TrainRunSpec {
   LinearTrainParams params;
   Direction startDir;
+  double startAuthorityLength;
   TrainLocSpec startLoc;
-  vector<pair<TrainLocSpec,double>> stops;
-  TrainLocSpec endLoc;
+  vector<double> stops;
+  // TrainLocSpec endLoc;
 };
 
 struct SwitchSpec {
-  SwitchState default_state = SwitchState::Left;
+  SwitchState default_state;
 };
 
 struct SignalSpec {
@@ -32,7 +33,7 @@ struct SignalSpec {
 };
 
 struct DetectorSpec {
-  int upTVD; 
+  int upTVD;
   int downTVD;
 };
 
@@ -47,10 +48,11 @@ struct LinkSpec {
 };
 
 struct ISObjSpec {
-  enum class ISObjType { Signal, Detector, Sight, Switch, Boundary, Stop };
-  const char* name;
+  enum class ISObjType { Signal, Detector, Sight, Switch, Boundary, Stop, TVD };
+  const char *name;
   ISObjType type;
-  short n_up; short n_down;
+  short n_up;
+  short n_down;
   LinkSpec up[2];
   LinkSpec down[2];
   union {
@@ -61,26 +63,23 @@ struct ISObjSpec {
   };
 };
 
-struct InfrastructureSpec {
-  vector<ISObjSpec> driveGraph;
-};
-
 struct ReleaseSpec {
   // trigger: name of TVD which triggers release
   // TODO handle more intricate triggering patterns
   size_t trigger;
   vector<size_t> resources;
-}; 
+};
 
 struct RouteSpec {
   string name;
   int entry_signal;
   vector<size_t> tvds;
-  vector<pair<size_t,SwitchState>> switches;
+  vector<pair<size_t, SwitchState>> switches;
   vector<ReleaseSpec> releases;
   double length;
 };
 
-struct InterlockingSpec {
+struct InfrastructureSpec {
+  vector<ISObjSpec> driveGraph;
   vector<RouteSpec> routes;
 };

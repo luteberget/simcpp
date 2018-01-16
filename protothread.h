@@ -83,53 +83,64 @@
 //     PT_END();
 // }
 //
-class Protothread
-{
+class Protothread {
 public:
-    // Construct a new protothread that will start from the beginning
-    // of its Run() function.
-    Protothread() : _ptLine(0) { }
+  // Construct a new protothread that will start from the beginning
+  // of its Run() function.
+  Protothread() : _ptLine(0) {}
 
-    // Restart protothread.
-    void Restart() { _ptLine = 0; }
+  // Restart protothread.
+  void Restart() { _ptLine = 0; }
 
-    // Stop the protothread from running. Happens automatically at PT_END.
-    // Note: this differs from the Dunkels' original protothread behaviour
-    // (his restart automatically, which is usually not what you want).
-    void Stop() { _ptLine = LineNumberInvalid; }
+  // Stop the protothread from running. Happens automatically at PT_END.
+  // Note: this differs from the Dunkels' original protothread behaviour
+  // (his restart automatically, which is usually not what you want).
+  void Stop() { _ptLine = LineNumberInvalid; }
 
-    // Return true if the protothread is running or waiting, false if it has
-    // ended or exited.
-    bool IsRunning() { return _ptLine != LineNumberInvalid; }
+  // Return true if the protothread is running or waiting, false if it has
+  // ended or exited.
+  bool IsRunning() { return _ptLine != LineNumberInvalid; }
 
-    // Run next part of protothread or return immediately if it's still
-    // waiting. Return true if protothread is still running, false if it
-    // has finished. Implement this method in your Protothread subclass.
-    virtual bool Run() = 0;
+  // Run next part of protothread or return immediately if it's still
+  // waiting. Return true if protothread is still running, false if it
+  // has finished. Implement this method in your Protothread subclass.
+  virtual bool Run() = 0;
 
 protected:
-    // Used to store a protothread's position (what Dunkels calls a
-    // "local continuation").
-    typedef unsigned short LineNumber;
+  // Used to store a protothread's position (what Dunkels calls a
+  // "local continuation").
+  typedef unsigned short LineNumber;
 
-    // An invalid line number, used to mark the protothread has ended.
-    static const LineNumber LineNumberInvalid = (LineNumber)(-1);
+  // An invalid line number, used to mark the protothread has ended.
+  static const LineNumber LineNumberInvalid = (LineNumber)(-1);
 
-    // Stores the protothread's position (by storing the line number of
-    // the last PT_WAIT, which is then switched on at the next Run).
-    LineNumber _ptLine;
+  // Stores the protothread's position (by storing the line number of
+  // the last PT_WAIT, which is then switched on at the next Run).
+  LineNumber _ptLine;
 };
 
 // Declare start of protothread (use at start of Run() implementation).
-#define PT_BEGIN() bool ptYielded = true; (void) ptYielded; switch (_ptLine) { case 0:
+#define PT_BEGIN()                                                             \
+  bool ptYielded = true;                                                       \
+  (void) ptYielded;                                                            \
+  switch (_ptLine) {                                                           \
+  case 0:
 
 // Stop protothread and end it (use at end of Run() implementation).
-#define PT_END() default: ; } Stop(); return false;
+#define PT_END()                                                               \
+  default:;                                                                    \
+    }                                                                          \
+    Stop();                                                                    \
+    return false;
 
 // Cause protothread to wait until given condition is true.
-#define PT_WAIT_UNTIL(condition) \
-    do { _ptLine = __LINE__; case __LINE__: \
-    if (!(condition)) return true; } while (0)
+#define PT_WAIT_UNTIL(condition)                                               \
+  do {                                                                         \
+    _ptLine = __LINE__;                                                        \
+  case __LINE__:                                                               \
+    if (!(condition))                                                          \
+      return true;                                                             \
+  } while (0)
 
 // Cause protothread to wait while given condition is true.
 #define PT_WAIT_WHILE(condition) PT_WAIT_UNTIL(!(condition))
@@ -138,23 +149,44 @@ protected:
 #define PT_WAIT_THREAD(child) PT_WAIT_WHILE((child).Run())
 
 // Restart and spawn given child protothread and wait until it completes.
-#define PT_SPAWN(child) \
-    do { (child).Restart(); PT_WAIT_THREAD(child); } while (0)
+#define PT_SPAWN(child)                                                        \
+  do {                                                                         \
+    (child).Restart();                                                         \
+    PT_WAIT_THREAD(child);                                                     \
+  } while (0)
 
 // Restart protothread's execution at its PT_BEGIN.
-#define PT_RESTART() do { Restart(); return true; } while (0)
+#define PT_RESTART()                                                           \
+  do {                                                                         \
+    Restart();                                                                 \
+    return true;                                                               \
+  } while (0)
 
 // Stop and exit from protothread.
-#define PT_EXIT() do { Stop(); return false; } while (0)
+#define PT_EXIT()                                                              \
+  do {                                                                         \
+    Stop();                                                                    \
+    return false;                                                              \
+  } while (0)
 
 // Yield protothread till next call to its Run().
-#define PT_YIELD() \
-    do { ptYielded = false; _ptLine = __LINE__; case __LINE__: \
-    if (!ptYielded) return true; } while (0)
+#define PT_YIELD()                                                             \
+  do {                                                                         \
+    ptYielded = false;                                                         \
+    _ptLine = __LINE__;                                                        \
+  case __LINE__:                                                               \
+    if (!ptYielded)                                                            \
+      return true;                                                             \
+  } while (0)
 
 // Yield protothread until given condition is true.
-#define PT_YIELD_UNTIL(condition) \
-    do { ptYielded = false; _ptLine = __LINE__; case __LINE__: \
-    if (!ptYielded || !(condition)) return true; } while (0)
+#define PT_YIELD_UNTIL(condition)                                              \
+  do {                                                                         \
+    ptYielded = false;                                                         \
+    _ptLine = __LINE__;                                                        \
+  case __LINE__:                                                               \
+    if (!ptYielded || !(condition))                                            \
+      return true;                                                             \
+  } while (0)
 
 #endif // __PROTOTHREAD_H__
