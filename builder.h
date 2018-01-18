@@ -6,6 +6,14 @@ typedef struct InfrastructureSpec InfrastructureSpec;
 InfrastructureSpec* new_infrastructurespec(void);
 void delete_infrastructurespec(InfrastructureSpec* is);
 
+  ReleaseSpec* new_release(size_t trigger);
+  void add_release_resource(ReleaseSpec* r, size_t resource);
+  RouteSpec* new_route(const char* name, int entry_signal, double length) ;
+  void add_release(RouteSpec* route, ReleaseSpec* release);
+  void add_route(InfrastructureSpec* is, RouteSpec* r);
+  void add_route_switch(RouteSpec* r, size_t sw, int state);
+  void add_route_tvd(RouteSpec* r, size_t tvd);
+
 void add_signal(InfrastructureSpec* is, const char* name, 
 		int upIdx, double upLength,
 		int downIdx, double downLength,

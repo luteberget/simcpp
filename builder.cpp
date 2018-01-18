@@ -5,6 +5,42 @@ extern "C" {
   InfrastructureSpec* new_infrastructurespec(void) { auto x = new InfrastructureSpec(); printf("new %p\n",x);return x; }
   void delete_infrastructurespec(InfrastructureSpec* is) { printf("delete %p\n",is);delete is; }
 
+  ReleaseSpec* new_release(size_t trigger) { auto r = new ReleaseSpec(); 
+	  r->trigger = trigger;
+	  return r;
+    }
+
+  void add_release_resource(ReleaseSpec* r, size_t resource) { r->resources.push_back(resource); }
+
+  RouteSpec* new_route(const char* name, 
+		  int entry_signal, 
+		  double length) { 
+	  auto r = new RouteSpec(); 
+	  if(name != nullptr) r->name = string(name);
+	  r->entry_signal = entry_signal;
+	  r->length = length;
+	  return r;
+  }
+  
+  void add_release(RouteSpec* route, ReleaseSpec* release) {
+    route->releases.push_back(*release);
+    delete release;
+  }
+
+  void add_route(InfrastructureSpec* is, RouteSpec* r) {
+    // printf("C++: ADD ROUTE\n");
+    is->routes.push_back(*r);
+    printf("routes %lu\n", is->routes.size());
+    delete r;
+  }
+
+  void add_route_switch(RouteSpec* r, size_t sw, int state) {
+     auto s = state > 0 ? SwitchState::Right : SwitchState::Left;
+     r->switches.push_back({sw,s});
+  }
+
+  void add_route_tvd(RouteSpec* r, size_t tvd) { r->tvds.push_back(tvd); }
+
 
   ISObjSpec mkobj( const char* name, int upIdx, double upLength, int downIdx, double downLength) {
     ISObjSpec spec;
@@ -28,7 +64,7 @@ extern "C" {
     spec.signal.dir = upDir > 0 ? Direction::Up : Direction::Down;
     is->driveGraph.push_back(spec);
     printf("Added signal at [%lu]\n",is->driveGraph.size()-1);
-    printf("IS %p",is);
+    printf("IS %p\n",is);
   }
 
   // DETECTOR
