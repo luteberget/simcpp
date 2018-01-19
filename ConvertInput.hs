@@ -7,7 +7,7 @@ module TrainSim.ConvertInput (
   resolveIds, completeLinks, Link,
   isObjs, isObjData, upLinks, downLinks, ISObjTypeSpec(..), RouteSpec(..),
   isRoutes,
-  convert, convertPlan, Plan, PlanItem(..),
+  convert, convertPlan, Plan, PlanItem(..), TrainRunSpec(..)
   ) where
 
 import Data.Maybe (listToMaybe, fromMaybe, isJust, maybeToList, isNothing, fromJust, catMaybes)
@@ -30,10 +30,7 @@ data BeginEnd = Begin | End deriving (Show)
 type Link id = (id, Double)
 data TrainRunSpec id
   = TrainRunSpec
-  { trsAccel :: Double
-  , trsBrake :: Double
-  , trsMaxVelocity :: Double
-  , trsLength :: Double
+  { trsVehicleParams :: UP.Vehicle
   , trsStartDir :: Direction
   , trsStartAuthorityLength :: Double
   , trsStartLoc :: Link id
@@ -41,7 +38,7 @@ data TrainRunSpec id
   }  deriving (Ord, Eq, Show)
 
 data ISObjTypeSpec id
-  = SignalSpec Direction
+  = SignalSpec Direction id
   | DetectorSpec (Maybe id) (Maybe id) -- tvd up tvd down
   | SightSpec id Double -- distance to signal
   | SwitchSpec SwitchPosition -- one or two connections + default state
@@ -77,15 +74,29 @@ data Infrastructure id
  } deriving (Ord, Eq, Show)
 
 type Plan = [PlanItem]
-data PlanItem = PlanStartTrain Int
+data PlanItem = PlanStartTrain (TrainRunSpec Int)
               | PlanActivateRoute Int
   deriving (Show, Ord, Eq)
 
-convertPlan :: Input.Infrastructure -> UP.UsagePattern -> [[(Int, Maybe Int)]] -> Plan
-convertPlan is up inplan = join (fmap diff (succPairs (empty:inplan)))
+--  , trsStartDir :: Direction
+--  , trsStartAuthorityLength :: Double
+--  , trsStartLoc :: Link id
+--  , trsStops :: [Double]
+
+convertTrain :: UP.UsagePattern -> Int -> Input.Route -> Map String Int -> PlanItem
+convertTrain up trainIdx route objmap = PlanStartTrain (TrainRunSpec vehicle dir authLen loc [])
+  where
+    m = (UP.movements up) !! trainIdx
+    vehicle = head [ v | v <- UP.vehicles up, UP.vehicleRef m == UP.vehicleName v ]
+    dir = Input.routeDir route
+    authLen = Input.length route
+    loc = ((objmap Map.! (Input.routePointRef (Input.entry route))), 0.0)
+
+convertPlan :: Input.Infrastructure -> UP.UsagePattern -> [[(Int, Maybe Int)]] -> Map String Int -> Plan
+convertPlan is up inplan objmap = join (fmap diff (succPairs (empty:inplan)))
   where
     numberedRoutes = zip [0..] (Input.routes is)
-    boundaryEntryRoutes = Set.fromList $ fmap fst (filter (\(i,r) -> isBoundary (Input.exit r)) numberedRoutes)
+    boundaryEntryRoutes = Set.fromList $ fmap fst (filter (\(i,r) -> isBoundary (Input.entry r)) numberedRoutes)
     empty = [ (i,Nothing) | (i,s1) <- inplan !! 0 ]
     diff :: ([(Int,Maybe Int)], [(Int, Maybe Int)]) -> Plan
     diff (s1,s2) = catMaybes (fmap diffItems (zip s1 s2))
@@ -95,9 +106,8 @@ convertPlan is up inplan = join (fmap diff (succPairs (empty:inplan)))
           | otherwise = Nothing
         go :: Int -> Int -> PlanItem
         go r t
-          | Set.member r boundaryEntryRoutes = PlanStartTrain t
+          | Set.member r boundaryEntryRoutes = convertTrain up t ((Input.routes is) !! r) objmap
           | otherwise = PlanActivateRoute r
-    convertTrain r t = 55
 
 -- TODO missing Plan train entry 
 
@@ -125,8 +135,8 @@ convertRoutes objMap is = (fmap convertInternal internalRoutes) ++
     convertRelease r = (objMap Map.! (Input.trigger r), 
                         fmap (\x -> objMap Map.! x) (Input.resources r))
 
-convert :: Input.Infrastructure -> Infrastructure Int
-convert input = Infrastructure isGraph isRoutes
+convert :: Input.Infrastructure -> (Infrastructure Int, Map String Int)
+convert input = (Infrastructure isGraph isRoutes, objMap)
   where
     isRoutes = convertRoutes objMap input
     isGraph = completeLinks singlyLinkedObjs
@@ -141,7 +151,7 @@ mkRoutes objs = undefined
     objmap = Map.fromList [(id,x) | x <- objs, let id = isObjId x]
     -- startPtsMap = Map.fromList [(id,x) | (x,_) <- startPts, let id = isObjId x]
     startPts = [ (o,startDir o) | o@(ISObjSpec _ BoundarySpec _ _) <- objs]
-            ++ [ (o,startDir o) | o@(ISObjSpec _ (SignalSpec _) _ _) <- objs]
+            ++ [ (o,startDir o) | o@(ISObjSpec _ (SignalSpec _ _) _ _) <- objs]
 
     objDirNexts :: ISObjSpec id -> Direction -> [Link id]
     objDirNexts o Up = upLinks o
@@ -181,7 +191,7 @@ mkRoutes objs = undefined
 
     startDir :: ISObjSpec id -> Direction
     startDir (ISObjSpec _ (BoundarySpec) upl downl) = if null upl then Down else Up
-    startDir (ISObjSpec _ (SignalSpec d) _ _) = d
+    startDir (ISObjSpec _ (SignalSpec d _) _ _) = d
 
 fresh :: State Int String
 fresh = do
@@ -190,22 +200,24 @@ fresh = do
   return $ "x" ++ (show i)
 
 componentLocation :: Input.Component -> Input.Location
-componentLocation (Input.Signal _ (loc,_)) = loc
-componentLocation (Input.Detector loc _ _) = loc
+componentLocation (Input.Signal _ (loc,_) _) = loc
+componentLocation (Input.Detector _ loc _ _) = loc
 
-data NodeComponent = NComponent Input.Component | NBoundary BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
+data NodeComponent = NComponent Input.Component | NBoundary String BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
 
 nodeLocation :: Double -> NodeComponent -> Double
 nodeLocation _  (NComponent c) = Input.posLength (componentLocation c)
-nodeLocation _  (NBoundary Begin) = 0.0
+nodeLocation _  (NBoundary _ Begin) = 0.0
 nodeLocation _  (NStop Begin) = 0.0
 nodeLocation _  (NSwitch Begin) = 0.0
-nodeLocation tl (NBoundary End) = tl
+nodeLocation tl (NBoundary _ End) = tl
 nodeLocation tl (NStop End) = tl
 nodeLocation tl (NSwitch End) = tl
 
 nodeName :: NodeComponent -> Maybe String
-nodeName (NComponent (Input.Signal name _)) = Just name
+nodeName (NComponent (Input.Signal name _ _)) = Just name
+nodeName (NComponent (Input.Detector name _ _ _)) = Just name
+nodeName (NBoundary name _) = Just name
 nodeName _ = Nothing
 
 type ObjRef = String
@@ -240,7 +252,7 @@ resolveIds inputs = (refmap, fmap tr inputs)
     trid id = refmap Map.! id
 
     trSpec :: ISObjTypeSpec String -> ISObjTypeSpec Int
-    trSpec (SignalSpec d) = SignalSpec d
+    trSpec (SignalSpec d det) = SignalSpec d (trid det)
     trSpec (DetectorSpec a b) = DetectorSpec (fmap trid a) (fmap trid b)
     trSpec (SightSpec a l) = SightSpec (trid a) l
     trSpec (SwitchSpec s) = SwitchSpec s
@@ -260,9 +272,9 @@ mkInfrastructureObjs is = evalState go 0
     trackNameMap = Map.fromList [(id,t) | t <- Input.tracks is, let id = Input.trackId t]
 
     tcomponents t = (tsignals t) ++ (tdetectors t)
-    tsignals t   = [ s | s@(Input.Signal _ ((Input.Location tref _),_)) <- Input.components is
+    tsignals t   = [ s | s@(Input.Signal _ ((Input.Location tref _),_) _) <- Input.components is
                        , tref == (Input.trackId t) ]
-    tdetectors t = [ d | d@(Input.Detector (Input.Location tref _) _ _) <- Input.components is
+    tdetectors t = [ d | d@(Input.Detector _ (Input.Location tref _) _ _) <- Input.components is
                        , tref == (Input.trackId t) ]
 
     distToFirstComponent :: Input.Track -> Double
@@ -280,13 +292,17 @@ mkInfrastructureObjs is = evalState go 0
                   , nt <- to]
 
     beginNode :: Input.Track -> Maybe NodeComponent
-    beginNode track = if boundary then Just (NBoundary Begin) else if stop then Just (NStop Begin) else if incomingSwitch then Just (NSwitch Begin) else Nothing
+    beginNode track 
+      | isJust boundary = Just (NBoundary (fromJust boundary) Begin)
+      | stop = Just (NStop Begin)
+      | incomingSwitch = Just (NSwitch Begin)
+      | otherwise = Nothing
       where
         -- TODO In Node constructor, take out name of boundary to refer to in RunSpec
         -- Boundary node: a boundary node points to this track.
-        boundary = not (null [() | (Input.Node _ Input.BoundaryNode 
+        boundary = listToMaybe [name | (Input.Node name Input.BoundaryNode 
                                                  (Input.ConnectionNode [x]))
-                                      <- Input.nodes is, x == Input.trackId track])
+                                      <- Input.nodes is, x == Input.trackId track]
         -- Stop node: No nodes (switches) link to this node
         stop = null [() | (Input.Node _ (Input.ConnectionNode _) 
                                         (Input.ConnectionNode to)) <- Input.nodes is
@@ -296,11 +312,15 @@ mkInfrastructureObjs is = evalState go 0
                                        <- Input.nodes is, x == Input.trackId track])
 
     endNode :: Input.Track -> Maybe NodeComponent
-    endNode track = if boundary then Just (NBoundary End) else if stop then Just (NStop End) else if outgoingSwitch then Just (NSwitch End) else Nothing
+    endNode track
+      | isJust boundary = Just (NBoundary (fromJust boundary) End)
+      | stop = Just (NStop End)
+      | outgoingSwitch = Just (NSwitch End)
+      | otherwise = Nothing
       where
-        boundary = not (null [() | (Input.Node _ (Input.ConnectionNode [x])
+        boundary = listToMaybe [name | (Input.Node name (Input.ConnectionNode [x])
                                                  Input.BoundaryNode)
-                                      <- Input.nodes is, x == Input.trackId track])
+                                      <- Input.nodes is, x == Input.trackId track]
         stop = null [() | (Input.Node _ (Input.ConnectionNode from)
                                         (Input.ConnectionNode _)) <- Input.nodes is
                         , (Input.trackId track) `elem` from]
@@ -310,10 +330,10 @@ mkInfrastructureObjs is = evalState go 0
 
 -- data NodeComponent = NComponent Input.Component | NBoundary BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
     nodeToObj :: NodeComponent -> [(ObjRef,Double)] -> (ISObjTypeSpec ObjRef, [Link ObjRef])
-    nodeToObj (NComponent (Input.Signal name (_,dir))) [lnk] = (SignalSpec dir, [lnk])
-    nodeToObj (NComponent (Input.Detector _ up down)) [lnk] = (DetectorSpec up down, [lnk])
+    nodeToObj (NComponent (Input.Signal name (_,dir) detector)) [lnk] = (SignalSpec dir detector, [lnk])
+    nodeToObj (NComponent (Input.Detector _ _ up down)) [lnk] = (DetectorSpec up down, [lnk])
     -- TVDs should not appear here (they have no location on the track graph)
-    nodeToObj (NBoundary _) links = (BoundarySpec, links)
+    nodeToObj (NBoundary name _) links = (BoundarySpec, links)
     nodeToObj (NStop _) links = (StopSpec, links)
     nodeToObj (NSwitch _) links = (SwitchSpec SwLeft, links) -- TODO configurable default state
     -- inconsistent input_

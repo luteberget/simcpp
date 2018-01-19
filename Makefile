@@ -1,5 +1,5 @@
 il: il.cpp simcpp.h simobj.h il_inputspec.h
-	g++ -Wall -std=c++11 il.cpp -o il
+	g++ -Wall -std=c++11 traindynamics.cpp il.cpp -o il
 
 all: example-minimal example-twocars
 .PHONY: all

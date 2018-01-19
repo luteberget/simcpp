@@ -3,11 +3,13 @@
 #include "traindynamics.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 using std::string;
 using std::vector;
 using std::pair;
 using std::make_pair;
+using std::unordered_map;
 
 enum class Direction { Up, Down };
 enum class SwitchState { Left, Right, Unknown };
@@ -32,7 +34,7 @@ struct SwitchSpec {
 
 struct SignalSpec {
   Direction dir;
-  size_t detector;
+  size_t detector_index;
 };
 
 struct DetectorSpec {
@@ -84,7 +86,7 @@ struct RouteSpec {
 
 struct InfrastructureSpec {
   vector<ISObjSpec> driveGraph;
-  vector<RouteSpec> routes;
+  unordered_map<size_t, RouteSpec> routes;
 };
 
 struct Plan {

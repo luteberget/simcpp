@@ -171,14 +171,14 @@ shared_ptr<Event> Simulation::timeout(double delay) {
 }
 
 class AnyOf : public Process {
+	vector<shared_ptr<Event>> evs;
 public:
-  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v)
-      : Process(sim) {
-    for (auto &e : v)
-      e->add_handler(shared_from_this());
-  }
+  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> evs)
+      : Process(sim), evs(evs) { }
   virtual bool Run() override {
     PT_BEGIN();
+    for (auto &e : this->evs)
+      e->add_handler(shared_from_this());
     PT_YIELD();
     // Any time we get called back, we are finished.
     PT_END();

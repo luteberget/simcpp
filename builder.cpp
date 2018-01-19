@@ -38,8 +38,7 @@ void add_plan_route(Plan* p, size_t r) {
 	p->activations.push_back({Plan::PlanItemType::Route, r});
 }
 double run_plan(InfrastructureSpec* is, Plan* p) {
-	test_plan(*is,*p);
-	return 90.5;
+	return test_plan(*is,*p);
 }
 void free_plan(Plan* p) { delete p; }
 
@@ -60,9 +59,11 @@ void free_plan(Plan* p) { delete p; }
     delete release;
   }
 
-  void add_route(InfrastructureSpec* is, RouteSpec* r) {
+  void add_route(InfrastructureSpec* is, size_t idx, RouteSpec* r) {
     // printf("C++: ADD ROUTE\n");
-    is->routes.push_back(*r);
+    //is->routes.push_back(*r);
+    is->routes[idx] = *r;
+    printf("added route at  %lu\n", idx);
     printf("routes %lu\n", is->routes.size());
     delete r;
   }
@@ -93,10 +94,11 @@ void free_plan(Plan* p) { delete p; }
 
   void add_signal(InfrastructureSpec* is, const char* name,
       int upIdx, double upLength, int downIdx, double downLength,
-      int upDir) {
+      int upDir, size_t detector) {
     ISObjSpec spec = mkobj(name,upIdx,upLength,downIdx,downLength);
     spec.type = ISObjSpec::ISObjType::Signal;
     spec.signal.dir = upDir > 0 ? Direction::Up : Direction::Down;
+    spec.signal.detector_index = detector;
     is->driveGraph.push_back(spec);
     printf("Added signal at [%lu]\n",is->driveGraph.size()-1);
     printf("IS %p\n",is);

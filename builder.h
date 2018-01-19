@@ -22,7 +22,7 @@ void free_infrastructurespec(InfrastructureSpec* is);
   void add_release_resource(ReleaseSpec* r, size_t resource);
   RouteSpec* new_route(const char* name, int entry_signal, double length) ;
   void add_release(RouteSpec* route, ReleaseSpec* release);
-  void add_route(InfrastructureSpec* is, RouteSpec* r);
+  void add_route(InfrastructureSpec* is, size_t idx, RouteSpec* r);
   void add_route_switch(RouteSpec* r, size_t sw, int state);
   void add_route_tvd(RouteSpec* r, size_t tvd);
 

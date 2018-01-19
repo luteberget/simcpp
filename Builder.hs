@@ -9,24 +9,27 @@ import Foreign.C.Types
 import Data.Maybe (listToMaybe)
 import Control.Monad (forM,forM_)
 
+import Data.Map (Map)
+
 import TrainSim.ConvertInput
 import TrainPlan.Infrastructure (Direction(..),SwitchPosition(..))
 import qualified TrainPlan.Infrastructure
+import qualified TrainPlan.UsagePattern as UP
 
 data Simulator
 data Release
 data Route
 data SimPlan
-data TrainRunSpec
+data SimTrainRunSpec
 
 foreign import ccall unsafe "new_infrastructurespec" new_infrastructure :: IO (Ptr Simulator)
 foreign import ccall unsafe "free_infrastructurespec" free_infrastructure :: Ptr Simulator -> IO ()
 
 foreign import ccall unsafe "new_plan" new_plan :: IO (Ptr SimPlan)
 foreign import ccall unsafe "new_trainrunspec" new_trainrunspec ::
-  CDouble -> CDouble -> CDouble -> CDouble -> CInt -> CDouble -> CSize -> IO (Ptr TrainRunSpec)
-foreign import ccall unsafe "add_trainrunspec_stop" add_trainrunspec_stop :: Ptr TrainRunSpec -> CDouble -> IO ()
-foreign import ccall unsafe "add_plan_train" add_plan_train :: Ptr SimPlan -> Ptr TrainRunSpec -> IO ()
+  CDouble -> CDouble -> CDouble -> CDouble -> CInt -> CDouble -> CSize -> IO (Ptr SimTrainRunSpec)
+foreign import ccall unsafe "add_trainrunspec_stop" add_trainrunspec_stop :: Ptr SimTrainRunSpec -> CDouble -> IO ()
+foreign import ccall unsafe "add_plan_train" add_plan_train :: Ptr SimPlan -> Ptr SimTrainRunSpec -> IO ()
 foreign import ccall unsafe "add_plan_route" add_plan_route :: Ptr SimPlan -> CSize -> IO ()
 foreign import ccall unsafe "run_plan" run_plan :: Ptr Simulator -> Ptr SimPlan -> IO CDouble
 foreign import ccall unsafe "free_plan" free_plan :: Ptr SimPlan -> IO ()
@@ -35,11 +38,11 @@ foreign import ccall unsafe "new_release" new_release :: CSize -> IO (Ptr Releas
 foreign import ccall unsafe "new_route" new_route :: CString -> CInt -> CDouble -> IO (Ptr Route)
 foreign import ccall unsafe "add_release_resource" add_release_resource :: Ptr Release -> CSize -> IO ()
 foreign import ccall unsafe "add_release" add_release :: Ptr Route -> Ptr Release -> IO ()
-foreign import ccall unsafe "add_route" add_route :: Ptr Simulator -> Ptr Route -> IO ()
+foreign import ccall unsafe "add_route" add_route :: Ptr Simulator -> CSize -> Ptr Route -> IO ()
 foreign import ccall unsafe "add_route_switch" add_route_switch :: Ptr Route -> CSize -> CInt -> IO ()
 foreign import ccall unsafe "add_route_tvd" add_route_tvd :: Ptr Route -> CSize -> IO ()
 
-foreign import ccall unsafe "add_signal" add_signal :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CInt -> IO ()
+foreign import ccall unsafe "add_signal" add_signal :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CInt -> CSize -> IO ()
 foreign import ccall unsafe "add_detector" add_detector :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CInt -> CInt -> IO ()
 foreign import ccall unsafe "add_sight" add_sight :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CSize -> CDouble -> IO ()
 foreign import ccall unsafe "add_boundary" add_boundary :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble ->  IO ()
@@ -74,21 +77,33 @@ withPlan p f = do
   ptr <- new_plan
   forM_ p $ \item -> case item of 
     PlanActivateRoute r -> add_plan_route ptr (fromIntegral r)
-    PlanStartTrain t -> return ()
+    PlanStartTrain t -> do
+      let vehicle = trsVehicleParams t
+      let (sid,soff) = trsStartLoc t
+      tptr <- new_trainrunspec (realToFrac (UP.vehicleMaxAccel vehicle))
+                               (realToFrac (UP.vehicleMaxBrake vehicle))
+                               (realToFrac (UP.vehicleMaxVelocity vehicle))
+                               (realToFrac (UP.vehicleLength vehicle))
+                               (dirRepr (trsStartDir t))
+                               (realToFrac (trsStartAuthorityLength t))
+                               (fromIntegral sid)
+      -- TODO stops
+      add_plan_train ptr tptr
   f ptr
   free_plan ptr
 
-withInfrastructureSimulator :: TrainPlan.Infrastructure.Infrastructure -> (Ptr Simulator -> IO ()) -> IO ()
-withInfrastructureSimulator is = withSimulator (convert is)
+withInfrastructureSimulator :: TrainPlan.Infrastructure.Infrastructure -> (Ptr Simulator -> Map String Int -> IO ()) -> IO ()
+withInfrastructureSimulator is = withSimulator spec objmap
+  where (spec, objmap) = convert is
 
-withSimulator :: Infrastructure Int -> (Ptr Simulator -> IO ()) -> IO ()
-withSimulator spec f = do
+withSimulator :: Infrastructure Int -> Map String Int -> (Ptr Simulator -> Map String Int -> IO ()) -> IO ()
+withSimulator spec objmap f = do
   isptr <- new_infrastructure
   forM_ (isObjs spec) $ \obj -> do
     let (up1,up1d) = maybeLinkRepr (upLinks obj)
     let (down1,down1d) = maybeLinkRepr (downLinks obj)
     case isObjData obj of
-      SignalSpec dir -> add_signal isptr nullPtr up1 up1d down1 down1d (dirRepr dir)
+      SignalSpec dir det -> add_signal isptr nullPtr up1 up1d down1 down1d (dirRepr dir) (fromIntegral det)
       DetectorSpec uptvd downtvd -> add_detector isptr nullPtr up1 up1d down1 down1d 
         (maybeIntRepr uptvd) (maybeIntRepr downtvd)
       SightSpec x k -> add_sight isptr nullPtr up1 up1d down1 down1d 
@@ -113,11 +128,11 @@ withSimulator spec f = do
       release_ptr <- new_release (fromIntegral trig)
       forM_ res $ \r -> do add_release_resource release_ptr (fromIntegral r)
       add_release routeptr release_ptr
-    add_route isptr routeptr
+    add_route isptr (fromIntegral i) routeptr
     putStrLn "DONE ADDING ROUTE"
 
   putStrLn "STARTING PROCESS WITH PTR"
-  f isptr
+  f isptr objmap
   putStrLn "ENDING PROCESS WITH PTR"
   free_infrastructure isptr
 
