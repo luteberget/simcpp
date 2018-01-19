@@ -1,14 +1,47 @@
-#include "il_inputspec.h"
+#include "builder.h"
 
 extern "C" {
 
   InfrastructureSpec* new_infrastructurespec(void) { auto x = new InfrastructureSpec(); printf("new %p\n",x);return x; }
-  void delete_infrastructurespec(InfrastructureSpec* is) { printf("delete %p\n",is);delete is; }
+  void free_infrastructurespec(InfrastructureSpec* is) { printf("delete %p\n",is);delete is; }
 
   ReleaseSpec* new_release(size_t trigger) { auto r = new ReleaseSpec(); 
 	  r->trigger = trigger;
 	  return r;
     }
+
+Plan* new_plan(void) {
+	return new Plan;
+}
+TrainRunSpec* new_trainrunspec(double acc, double brk, double vmax, double len,
+		int dir, double authLen, size_t startObj) {
+	TrainRunSpec* s = new TrainRunSpec;
+	s->params.max_acc = acc;
+	s->params.max_brk = brk;
+	s->params.max_vel = vmax;
+	s->params.length = len;
+	s->startDir = dir > 0 ? Direction::Up : Direction::Down;
+	s->startAuthorityLength = authLen;
+	s->startLoc = TrainLocSpec { startObj, 0.0 };
+	return s;
+}
+void add_trainrunspec_stop(TrainRunSpec* s, double stop) {
+	s->stops.push_back(stop);
+}
+void add_plan_train(Plan* p, TrainRunSpec* s) {
+	p->trains.push_back(*s);
+	delete s;
+	p->activations.push_back({Plan::PlanItemType::Train, p->trains.size() -1});
+}
+
+void add_plan_route(Plan* p, size_t r) {
+	p->activations.push_back({Plan::PlanItemType::Route, r});
+}
+double run_plan(InfrastructureSpec* is, Plan* p) {
+	test_plan(*is,*p);
+	return 90.5;
+}
+void free_plan(Plan* p) { delete p; }
 
   void add_release_resource(ReleaseSpec* r, size_t resource) { r->resources.push_back(resource); }
 
@@ -45,6 +78,8 @@ extern "C" {
   ISObjSpec mkobj( const char* name, int upIdx, double upLength, int downIdx, double downLength) {
     ISObjSpec spec;
     spec.name = name;
+    spec.n_up = 0;
+    spec.n_down = 0;
     if(upIdx >= 0) {
       spec.n_up = 1;
       spec.up[0] = {(size_t)upIdx, upLength};
@@ -58,7 +93,7 @@ extern "C" {
 
   void add_signal(InfrastructureSpec* is, const char* name,
       int upIdx, double upLength, int downIdx, double downLength,
-      bool upDir) {
+      int upDir) {
     ISObjSpec spec = mkobj(name,upIdx,upLength,downIdx,downLength);
     spec.type = ISObjSpec::ISObjType::Signal;
     spec.signal.dir = upDir > 0 ? Direction::Up : Direction::Down;

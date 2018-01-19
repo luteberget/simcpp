@@ -1,10 +1,22 @@
 #ifndef __BUILDER_H
 #define __BUILDER_H
 
-typedef struct InfrastructureSpec InfrastructureSpec;
+#include "il_inputspec.h"
+#include "il.h"
+
+extern "C" {
+
+Plan* new_plan(void);
+TrainRunSpec* new_trainrunspec(double acc, double brk, double vmax, double len,
+		int dir, double authLen, size_t startObj);
+void add_trainrunspec_stop(TrainRunSpec* s, double stop);
+void add_plan_train(Plan* p, TrainRunSpec* s);
+void add_plan_route(Plan* p, size_t);
+double run_plan(InfrastructureSpec* is, Plan* p);
+void free_plan(Plan* p);
 
 InfrastructureSpec* new_infrastructurespec(void);
-void delete_infrastructurespec(InfrastructureSpec* is);
+void free_infrastructurespec(InfrastructureSpec* is);
 
   ReleaseSpec* new_release(size_t trigger);
   void add_release_resource(ReleaseSpec* r, size_t resource);
@@ -17,7 +29,7 @@ void delete_infrastructurespec(InfrastructureSpec* is);
 void add_signal(InfrastructureSpec* is, const char* name, 
 		int upIdx, double upLength,
 		int downIdx, double downLength,
-		int upDir);
+		int upDir, size_t detector);
   void add_detector(InfrastructureSpec* is, const char* name,
 		  int upIdx, double upLength, int downIdx, double downLength,
 		  int upTvd, int downTvd);
@@ -36,4 +48,5 @@ void add_signal(InfrastructureSpec* is, const char* name,
 		  int downIdx2, double downLength2,
 		  int state);
 
+}
 #endif

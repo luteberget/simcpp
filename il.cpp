@@ -241,20 +241,32 @@ public:
 
 class Detector : public ISObj {
 public:
+  shared_ptr<Event> touched_event;
   TVD *upTVD;
   TVD *downTVD;
+  Sim s;
+  Detector(Sim s) :s(s) {
+    touched_event = std::make_shared<Event>(s);
+  }
+
+  void touched() {
+    this->s->schedule(this->touched_event);
+    this->touched_event = std::make_shared<Event>(s);
+  }
 
   void arrive_front(Train &t) override {
     if (upTVD != nullptr && t.get_dir() == Direction::Up)
       upTVD->set_occupied(true);
     if (downTVD != nullptr && t.get_dir() == Direction::Down)
       downTVD->set_occupied(true);
+    this->touched();
   }
   void arrive_back(Train &t) override {
     if (upTVD != nullptr && t.get_dir() == Direction::Up)
       upTVD->set_occupied(false);
     if (downTVD != nullptr && t.get_dir() == Direction::Down)
       downTVD->set_occupied(false);
+    this->touched();
   }
 };
 
@@ -369,6 +381,7 @@ public:
         releases(releases), length(length) {}
 
   shared_ptr<Process> activate() {
+    printf("route::activate\n");
     return this->env->start_process<RouteActivation>(this);
   }
 
@@ -591,12 +604,13 @@ void test_plan(const InfrastructureSpec &is, const Plan &p) {
       // trains.push_back(proc);
     }
   }
+  printf("Starting run\n");
   sim->run();
   // TODO return whether all *Train*s terminate successfully.
 }
 
-int main() {
-  auto sim = Simulation::create();
-  sim->run();
-  return 0;
-}
+//int main() {
+//  auto sim = Simulation::create();
+//  sim->run();
+//  return 0;
+//}

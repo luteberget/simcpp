@@ -7,17 +7,20 @@ module TrainSim.ConvertInput (
   resolveIds, completeLinks, Link,
   isObjs, isObjData, upLinks, downLinks, ISObjTypeSpec(..), RouteSpec(..),
   isRoutes,
-  convert
+  convert, convertPlan, Plan, PlanItem(..),
   ) where
 
-import Data.Maybe (listToMaybe, fromMaybe, isJust, maybeToList, isNothing, fromJust)
+import Data.Maybe (listToMaybe, fromMaybe, isJust, maybeToList, isNothing, fromJust, catMaybes)
 import Data.List (sortBy,nub)
 import Data.Ord (comparing)
 import Control.Monad.State
 import qualified Data.Map as Map
 import Data.Map (Map)
+import qualified Data.Set as Set
+import Data.Set (Set)
 
 import qualified TrainPlan.Infrastructure as Input
+import qualified TrainPlan.UsagePattern as UP
 import TrainPlan.Infrastructure (routePointRef, isBoundary)
 import TrainPlan.Infrastructure (Direction(..), SwitchPosition(..))
 
@@ -70,26 +73,51 @@ data RouteSpec id
 data Infrastructure id
  = Infrastructure
  { isObjs   :: [ISObjSpec id]
- , isRoutes :: [RouteSpec id]
+ , isRoutes :: [(id, RouteSpec id)]
  } deriving (Ord, Eq, Show)
 
+type Plan = [PlanItem]
+data PlanItem = PlanStartTrain Int
+              | PlanActivateRoute Int
+  deriving (Show, Ord, Eq)
 
-convertRoutes :: Map String Int -> Input.Infrastructure -> [RouteSpec Int]
+convertPlan :: Input.Infrastructure -> UP.UsagePattern -> [[(Int, Maybe Int)]] -> Plan
+convertPlan is up inplan = join (fmap diff (succPairs (empty:inplan)))
+  where
+    numberedRoutes = zip [0..] (Input.routes is)
+    boundaryEntryRoutes = Set.fromList $ fmap fst (filter (\(i,r) -> isBoundary (Input.exit r)) numberedRoutes)
+    empty = [ (i,Nothing) | (i,s1) <- inplan !! 0 ]
+    diff :: ([(Int,Maybe Int)], [(Int, Maybe Int)]) -> Plan
+    diff (s1,s2) = catMaybes (fmap diffItems (zip s1 s2))
+      where
+        diffItems ((r1,t1),(r2,t2)) 
+          | not (isNothing t2) && t1 /= t2 = Just (go r2 (fromJust t2))
+          | otherwise = Nothing
+        go :: Int -> Int -> PlanItem
+        go r t
+          | Set.member r boundaryEntryRoutes = PlanStartTrain t
+          | otherwise = PlanActivateRoute r
+    convertTrain r t = 55
+
+-- TODO missing Plan train entry 
+
+convertRoutes :: Map String Int -> Input.Infrastructure -> [(Int,RouteSpec Int)]
 convertRoutes objMap is = (fmap convertInternal internalRoutes) ++ 
                    (fmap convertBoundaryExit boundaryExitRoutes)
   where
-    internalRoutes = filter (\r -> (not (isBoundary (Input.entry r))) && 
-                                   (not (isBoundary (Input.exit r)))) (Input.routes is)
-    boundaryExitRoutes = filter (\r -> isBoundary (Input.exit r)) (Input.routes is)
+    numberedRoutes = zip [0..] (Input.routes is)
+    internalRoutes = filter (\(i,r) -> (not (isBoundary (Input.entry r))) && 
+                                       (not (isBoundary (Input.exit r)))) numberedRoutes 
+    boundaryExitRoutes = filter (\(i,r) -> isBoundary (Input.exit r)) numberedRoutes
 
-    convertInternal r = RouteSpec (Just e) tvds swpos releases length
+    convertInternal (i,r) = (i, RouteSpec (Just e) tvds swpos releases length)
       where 
         e = objMap Map.! (routePointRef (Input.entry r))
         tvds = fmap (\x -> objMap Map.! x) (Input.tvds r)
         swpos = fmap (\(x,p) -> (objMap Map.! x, p)) (Input.switchPos r)
         releases = fmap convertRelease (Input.releases r)
         length = Input.length r
-    convertBoundaryExit r = RouteSpec (Just e) [] [] [] length
+    convertBoundaryExit (i,r) = (i,RouteSpec (Just e) [] [] [] length)
       where
         e = objMap Map.! (routePointRef (Input.entry r))
         length = (read "Infinity" :: Double)
@@ -104,7 +132,7 @@ convert input = Infrastructure isGraph isRoutes
     isGraph = completeLinks singlyLinkedObjs
     (objMap,singlyLinkedObjs) = resolveIds (mkInfrastructureObjs input)
 
-mkInfrastructure :: [ISObjSpec Int] -> [RouteSpec Int] -> Infrastructure Int
+mkInfrastructure :: [ISObjSpec Int] -> [(Int, RouteSpec Int)] -> Infrastructure Int
 mkInfrastructure a b = Infrastructure a b
 
 mkRoutes :: forall id. (Eq id, Ord id) => [ISObjSpec id] -> [(id, RouteSpec id)]

@@ -1,3 +1,5 @@
+#ifndef __IL_INPUTSPEC_H
+#define __IL_INPUTSPEC_H
 #include "traindynamics.h"
 #include <string>
 #include <vector>
@@ -30,6 +32,7 @@ struct SwitchSpec {
 
 struct SignalSpec {
   Direction dir;
+  size_t detector;
 };
 
 struct DetectorSpec {
@@ -83,3 +86,14 @@ struct InfrastructureSpec {
   vector<ISObjSpec> driveGraph;
   vector<RouteSpec> routes;
 };
+
+struct Plan {
+  enum class PlanItemType { Route, Train };
+  vector<pair<PlanItemType, size_t>> activations;
+  vector<TrainRunSpec> trains;
+};
+
+struct Schedule {
+};
+
+#endif

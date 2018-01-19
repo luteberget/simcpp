@@ -1,5 +1,5 @@
 module TrainSim.Builder (
- withSimulator, withInfrastructureSimulator
+ withSimulator, withInfrastructureSimulator, withPlan, testPlan
 ) where
 
 import Foreign.Ptr
@@ -16,9 +16,20 @@ import qualified TrainPlan.Infrastructure
 data Simulator
 data Release
 data Route
+data SimPlan
+data TrainRunSpec
 
 foreign import ccall unsafe "new_infrastructurespec" new_infrastructure :: IO (Ptr Simulator)
-foreign import ccall unsafe "delete_infrastructurespec" delete_infrastructure :: Ptr Simulator -> IO ()
+foreign import ccall unsafe "free_infrastructurespec" free_infrastructure :: Ptr Simulator -> IO ()
+
+foreign import ccall unsafe "new_plan" new_plan :: IO (Ptr SimPlan)
+foreign import ccall unsafe "new_trainrunspec" new_trainrunspec ::
+  CDouble -> CDouble -> CDouble -> CDouble -> CInt -> CDouble -> CSize -> IO (Ptr TrainRunSpec)
+foreign import ccall unsafe "add_trainrunspec_stop" add_trainrunspec_stop :: Ptr TrainRunSpec -> CDouble -> IO ()
+foreign import ccall unsafe "add_plan_train" add_plan_train :: Ptr SimPlan -> Ptr TrainRunSpec -> IO ()
+foreign import ccall unsafe "add_plan_route" add_plan_route :: Ptr SimPlan -> CSize -> IO ()
+foreign import ccall unsafe "run_plan" run_plan :: Ptr Simulator -> Ptr SimPlan -> IO CDouble
+foreign import ccall unsafe "free_plan" free_plan :: Ptr SimPlan -> IO ()
 
 foreign import ccall unsafe "new_release" new_release :: CSize -> IO (Ptr Release)
 foreign import ccall unsafe "new_route" new_route :: CString -> CInt -> CDouble -> IO (Ptr Route)
@@ -58,6 +69,15 @@ maybeIntRepr :: Maybe Int -> CInt
 maybeIntRepr (Just x) = fromIntegral x
 maybeIntRepr Nothing = (-1)
 
+withPlan :: Plan -> (Ptr SimPlan -> IO ()) -> IO ()
+withPlan p f = do
+  ptr <- new_plan
+  forM_ p $ \item -> case item of 
+    PlanActivateRoute r -> add_plan_route ptr (fromIntegral r)
+    PlanStartTrain t -> return ()
+  f ptr
+  free_plan ptr
+
 withInfrastructureSimulator :: TrainPlan.Infrastructure.Infrastructure -> (Ptr Simulator -> IO ()) -> IO ()
 withInfrastructureSimulator is = withSimulator (convert is)
 
@@ -83,7 +103,7 @@ withSimulator spec f = do
           up1 up1d up2 up2d 
           down1 down1d down2 down2d 
           (swStateRepr swstate)
-  forM_ (isRoutes spec) $ \route -> do
+  forM_ (isRoutes spec) $ \(i,route) -> do
     putStrLn "ADDING ROUTE"
     routeptr <- new_route nullPtr (maybeIntRepr (rsEntrySignal route)) 
                     (realToFrac (tsLength route))
@@ -99,9 +119,9 @@ withSimulator spec f = do
   putStrLn "STARTING PROCESS WITH PTR"
   f isptr
   putStrLn "ENDING PROCESS WITH PTR"
-  delete_infrastructure isptr
+  free_infrastructure isptr
 
-test = do
-  is <- new_infrastructure
-  add_signal is nullPtr (-1) 1.0 2 3.5 1
-  delete_infrastructure is
+testPlan :: Ptr Simulator -> Ptr SimPlan -> IO Double
+testPlan is p = do
+  perf <- run_plan is p
+  return (realToFrac perf)
