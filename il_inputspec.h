@@ -56,8 +56,8 @@ struct ISObjSpec {
   enum class ISObjType { Signal, Detector, Sight, Switch, Boundary, Stop, TVD };
   string name;
   ISObjType type;
-  short n_up;
-  short n_down;
+  unsigned short n_up;
+  unsigned short n_down;
   LinkSpec up[2];
   LinkSpec down[2];
   union {
@@ -76,8 +76,7 @@ struct ReleaseSpec {
 };
 
 struct RouteSpec {
-  string name;
-  int entry_signal;
+  size_t entry_signal;
   vector<size_t> tvds;
   vector<pair<size_t, SwitchState>> switches;
   vector<ReleaseSpec> releases;
@@ -86,13 +85,23 @@ struct RouteSpec {
 
 struct InfrastructureSpec {
   vector<ISObjSpec> driveGraph;
-  unordered_map<size_t, RouteSpec> routes;
+  unordered_map<string, RouteSpec> routes;
 };
 
 struct Plan {
-  enum class PlanItemType { Route, Train };
-  vector<pair<PlanItemType, size_t>> activations;
-  vector<TrainRunSpec> trains;
+  enum class ItemType { Route, Train };
+  struct PlanItem {
+    ItemType type;
+    double dt;
+    string name;
+    TrainRunSpec trainData;
+  };
+  vector<PlanItem> items;
+};
+
+struct SimulatorInput {
+  InfrastructureSpec infrastructure;
+  Plan plan;
 };
 
 struct Schedule {

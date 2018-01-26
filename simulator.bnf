@@ -1,0 +1,27 @@
+// Grammar for the simulator input language
+
+ws (whitespace), string, int, double, size have the normal definitions.
+
+input ::= statement* 
+statement ::= object | route | release | setroute | train
+
+object ::= "obj" + size[n_up] + (link)^n_up 
+                 + size[n_down] + (link)^size[n_down] 
+                 + objtype
+objtype ::= signal | detector | sight | switch | boundary | stop | tvd
+link ::= size + double
+signal ::= "signal" + dir + double
+detector ::= "detector" + int + int
+switch ::= "switch" + swdir
+boundary ::= "boundary", stop ::= "stop", tvd ::= "tvd"
+dir ::= "up" | "down"
+swdir ::= "left" | "right"
+
+route ::= "route" + string[name] + string[signalname] + double[length] + size[n_tvds] + size^n_tvds + size[n_switches] + switchdef^n_switches
+release ::= "release" + string[routename] + size[trigger] + size[n_resources] + size^[n_resources]
+
+setroute ::= "setroute" + double[dt] + string[routename]
+
+train ::= "train" + double[dt] + string[name]
+                  + double[acc] + double[brk] + double[vmax] + double[length]
+                  + dir + double[authLength] + size[startnode]
