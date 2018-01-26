@@ -29,16 +29,17 @@ struct TrainRun {
   Direction startDir;
   double startAuthorityLength;
   TrainLoc startLoc;
-  //vector<pair<TrainLoc, double>> stops;
-  //TrainLoc endLoc;
+  // vector<pair<TrainLoc, double>> stops;
+  // TrainLoc endLoc;
 };
 
-TrainRun create_train_input(const TrainRunSpec& spec, const vector<unique_ptr<ISObj>> &objIndex) {
+TrainRun create_train_input(const TrainRunSpec &spec,
+                            const vector<unique_ptr<ISObj>> &objIndex) {
   TrainRun t;
   t.params = spec.params;
   t.startDir = spec.startDir;
   t.startAuthorityLength = spec.startAuthorityLength;
-  t.startLoc = { objIndex[spec.startLoc.obj].get(), 0.0 };
+  t.startLoc = {objIndex[spec.startLoc.obj].get(), 0.0};
   return t;
 }
 
@@ -82,16 +83,13 @@ public:
   TVD(Sim s) : Resource(s) {}
 };
 
-
 class Detector : public ISObj {
 public:
   shared_ptr<Event> touched_event;
   TVD *upTVD;
   TVD *downTVD;
   Sim s;
-  Detector(Sim s) :s(s) {
-    touched_event = std::make_shared<Event>(s);
-  }
+  Detector(Sim s) : s(s) { touched_event = std::make_shared<Event>(s); }
 
   void touched() {
     this->s->schedule(this->touched_event);
@@ -105,7 +103,7 @@ public:
 class Signal : protected EnvObj, public ISObj {
 public:
   Direction dir;
-  Detector* detector;
+  Detector *detector;
   Signal(Sim s, Direction dir) : EnvObj(s), dir(dir) {}
   OBSERVABLE_PROPERTY(bool, green, false)
   OBSERVABLE_PROPERTY(double, authority, 0.0)
@@ -152,7 +150,7 @@ public:
   }
 
   Train(Sim s, TrainRun spec) : Process(s) {
-	  printf("Initializing train process\n");
+    printf("Initializing train process\n");
     this->runSpec = spec;
     this->location = spec.startLoc;
     this->dir = spec.startDir;
@@ -176,17 +174,17 @@ public:
     }
 
     if (step.dt > 1e-4) {
-	    printf("Adding timeout for driving: %g\n",step.dt);
+      printf("Adding timeout for driving: %g\n", step.dt);
       evs.push_back(this->sim->timeout(step.dt));
     }
 
-	    printf("Starting AnyOf process with %lu events.\n",evs.size());
+    printf("Starting AnyOf process with %lu events.\n", evs.size());
     return this->sim->start_process<AnyOf>(evs);
   }
 
   void update_continuous() {
     double dt = this->sim->get_now() - this->last_t;
-    if(dt >= 1e-4) {
+    if (dt >= 1e-4) {
       auto dx_v = trainUpdate(this->params, this->velocity, {this->action, dt});
 
       auto dx = dx_v.first;
@@ -196,12 +194,14 @@ public:
       this->location.offset += dx;
 
       string mode;
-      if(this->action == LinearTrainStep::Action::Accel) mode = "ACCEL";
-      if(this->action == LinearTrainStep::Action::Brake) mode = "BRAKE";
-      if(this->action == LinearTrainStep::Action::Coast) mode = "COAST";
-	    printf("TRAIN %s %g %g %g %p %g\n", mode.c_str(),this->sim->get_now(), dt,
-			    this->location.offset, this->location.obj,
-			                this->velocity);
+      if (this->action == LinearTrainStep::Action::Accel)
+        mode = "ACCEL";
+      if (this->action == LinearTrainStep::Action::Brake)
+        mode = "BRAKE";
+      if (this->action == LinearTrainStep::Action::Coast)
+        mode = "COAST";
+      printf("TRAIN %s %g %g %g %p %g\n", mode.c_str(), this->sim->get_now(),
+             dt, this->location.offset, this->location.obj, this->velocity);
 
       // Distance to sighted signals
       for (auto &see : this->can_see)
@@ -217,9 +217,10 @@ public:
   }
 
   void update_discrete() {
-    while(this->node_dist().second < 1e-4 && this->node_dist().first != TargetReason::NoTrack) {
+    while (this->node_dist().second < 1e-4 &&
+           this->node_dist().first != TargetReason::NoTrack) {
       auto nodestep = this->node_dist();
-      if(nodestep.first == TargetReason::ReachNode) {
+      if (nodestep.first == TargetReason::ReachNode) {
         auto link = this->location.obj->next(this->dir);
         if (link != nullptr) {
           this->location.obj = link->obj;
@@ -227,10 +228,10 @@ public:
           this->location.obj->arrive_front(*this);
         }
       }
-      if(nodestep.first == TargetReason::ClearNode) {
+      if (nodestep.first == TargetReason::ClearNode) {
         auto cleared = this->nodesUnderTrain[0];
-	cleared.first->arrive_back(*this);
-	this->nodesUnderTrain.erase(this->nodesUnderTrain.begin());
+        cleared.first->arrive_back(*this);
+        this->nodesUnderTrain.erase(this->nodesUnderTrain.begin());
       }
     }
   }
@@ -263,10 +264,10 @@ public:
   bool Run() override {
     PT_BEGIN();
     while (true) {
-	  printf("Update targets, wait for event \n");
+      printf("Update targets, wait for event \n");
       this->update_targets();
       PROC_WAIT_FOR(this->until_discrete());
-	  printf("Update continuous + discrete \n");
+      printf("Update continuous + discrete \n");
       this->update_continuous();
       this->update_discrete();
     }
@@ -285,7 +286,6 @@ public:
       t.add_sight(this->sig, this->dist);
   }
 };
-
 
 class Switch : public Resource, public ISObj {
 private:
@@ -397,11 +397,11 @@ public:
       : EnvObj(s), switchPositions(swPos), tvds(tvds), entrySignal(entrySignal),
         releases(releases), length(length) {
 
-		printf("creating route, sim=%p\n", s.get());
-	}
+    printf("creating route, sim=%p\n", s.get());
+  }
 
   shared_ptr<Process> activate() {
-    printf("route::activate %p\n",this->env.get());
+    printf("route::activate %p\n", this->env.get());
     return this->env->start_process<RouteActivation>(this);
   }
 
@@ -467,7 +467,7 @@ private:
       }
       // Release triggers
       for (auto &t : this->route->releases) {
-      printf("trigger\n");
+        printf("trigger\n");
         this->sim->start_process<ReleaseTrigger>(t.first, t.second);
       }
       // Green entry signal
@@ -483,8 +483,7 @@ private:
     Detector *d;
 
   public:
-    CatchSignal(Sim s, Signal *sig)
-        : Process(s), sig(sig){}
+    CatchSignal(Sim s, Signal *sig) : Process(s), sig(sig) {}
     virtual bool Run() {
       PT_BEGIN();
       PROC_WAIT_FOR(sig->detector->touched_event);
@@ -524,12 +523,11 @@ public:
   vector<unique_ptr<ISObj>> objects;
 
   // Interlocking
-  unordered_map<size_t,Route> routes;
+  unordered_map<size_t, Route> routes;
 
   // Trains
   vector<Train> trains;
 };
-
 
 void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
   vector<unique_ptr<ISObj>> graphObjs;
@@ -539,7 +537,7 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
     } else if (spec.type == ISObjSpec::ISObjType::Detector) {
       graphObjs.emplace_back(new Detector(sim));
     } else if (spec.type == ISObjSpec::ISObjType::Sight) {
-      graphObjs.emplace_back( new Sight( spec.sight.distance));
+      graphObjs.emplace_back(new Sight(spec.sight.distance));
     } else if (spec.type == ISObjSpec::ISObjType::Switch) {
       graphObjs.emplace_back(new Switch(sim, spec.sw.default_state));
     } else if (spec.type == ISObjSpec::ISObjType::Boundary) {
@@ -565,17 +563,19 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
       ((Switch *)graphObjs[i].get())->set_next(spec, graphObjs);
     }
     if (spec.type == ISObjSpec::ISObjType::Detector) {
-      Detector* d = (Detector*)graphObjs[i].get();
-      if(spec.detector.upTVD >= 0) d->upTVD = ((TVD*)graphObjs[spec.detector.upTVD].get());
-      if(spec.detector.downTVD >= 0) d->downTVD = ((TVD*)graphObjs[spec.detector.downTVD].get());
+      Detector *d = (Detector *)graphObjs[i].get();
+      if (spec.detector.upTVD >= 0)
+        d->upTVD = ((TVD *)graphObjs[spec.detector.upTVD].get());
+      if (spec.detector.downTVD >= 0)
+        d->downTVD = ((TVD *)graphObjs[spec.detector.downTVD].get());
     }
     if (spec.type == ISObjSpec::ISObjType::Sight) {
-      Sight* s = (Sight*) graphObjs[i].get();
-      s->sig = (Signal*) graphObjs[spec.sight.signal_index].get();
+      Sight *s = (Sight *)graphObjs[i].get();
+      s->sig = (Signal *)graphObjs[spec.sight.signal_index].get();
     }
     if (spec.type == ISObjSpec::ISObjType::Signal) {
-      Signal* s = (Signal*) graphObjs[i].get();
-      s->detector = (Detector*) graphObjs[spec.signal.detector_index].get();
+      Signal *s = (Signal *)graphObjs[i].get();
+      s->detector = (Detector *)graphObjs[spec.signal.detector_index].get();
     }
   }
 
@@ -584,7 +584,7 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is) {
 
 void mk_routes(Sim sim, World &world, const InfrastructureSpec &is) {
   for (auto &i_route : is.routes) {
-    auto& route = i_route.second;
+    auto &route = i_route.second;
     vector<pair<TVD *, vector<Resource *>>> releases;
     for (auto &spec : route.releases) {
       vector<Resource *> res;
@@ -608,8 +608,8 @@ void mk_routes(Sim sim, World &world, const InfrastructureSpec &is) {
     }
 
     printf("Constructing route %lu\n", i_route.first);
-    world.routes.emplace(i_route.first, 
-		    Route(sim, entrySignal, swPos, tvds, releases, route.length));
+    world.routes.emplace(i_route.first, Route(sim, entrySignal, swPos, tvds,
+                                              releases, route.length));
   }
 }
 
@@ -626,13 +626,16 @@ double test_plan(const InfrastructureSpec &is, const Plan &p) {
   World world = create_world(sim, is);
   for (auto &i : p.activations) {
     if (i.first == Plan::PlanItemType::Route) {
-	    printf("activating route %lu/%lu\n", i.second, world.routes.size());
+      printf("activating route %lu/%lu\n", i.second, world.routes.size());
       auto route = world.routes.find(i.second);
-      if(route == world.routes.end()) { printf("ERROR finding route\n"); }
-      else {sim->advance_to(route->second.activate()); }
+      if (route == world.routes.end()) {
+        printf("ERROR finding route\n");
+      } else {
+        sim->advance_to(route->second.activate());
+      }
     } else if (i.first == Plan::PlanItemType::Train) {
       printf("STARTING TRAIN\n");
-      auto& trainSpec = p.trains[i.second];
+      auto &trainSpec = p.trains[i.second];
       auto trainInput = create_train_input(trainSpec, world.objects);
       auto proc = sim->start_process<Train>(trainInput);
       trains.push_back(proc);
@@ -644,22 +647,22 @@ double test_plan(const InfrastructureSpec &is, const Plan &p) {
   return sim->get_now();
 }
 
-  void Detector::arrive_front(Train &t) {
-    if (upTVD != nullptr && t.get_dir() == Direction::Up)
-      upTVD->set_occupied(true);
-    if (downTVD != nullptr && t.get_dir() == Direction::Down)
-      downTVD->set_occupied(true);
-    this->touched();
-  }
-  void Detector::arrive_back(Train &t)  {
-    if (upTVD != nullptr && t.get_dir() == Direction::Up)
-      upTVD->set_occupied(false);
-    if (downTVD != nullptr && t.get_dir() == Direction::Down)
-      downTVD->set_occupied(false);
-    this->touched();
-  }
+void Detector::arrive_front(Train &t) {
+  if (upTVD != nullptr && t.get_dir() == Direction::Up)
+    upTVD->set_occupied(true);
+  if (downTVD != nullptr && t.get_dir() == Direction::Down)
+    downTVD->set_occupied(true);
+  this->touched();
+}
+void Detector::arrive_back(Train &t) {
+  if (upTVD != nullptr && t.get_dir() == Direction::Up)
+    upTVD->set_occupied(false);
+  if (downTVD != nullptr && t.get_dir() == Direction::Down)
+    downTVD->set_occupied(false);
+  this->touched();
+}
 
-//int main() {
+// int main() {
 //  auto sim = Simulation::create();
 //  sim->run();
 //  return 0;

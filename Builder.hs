@@ -44,7 +44,7 @@ foreign import ccall unsafe "add_route_tvd" add_route_tvd :: Ptr Route -> CSize 
 
 foreign import ccall unsafe "add_signal" add_signal :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CInt -> CSize -> IO ()
 foreign import ccall unsafe "add_detector" add_detector :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CInt -> CInt -> IO ()
-foreign import ccall unsafe "add_sight" add_sight :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CSize -> CDouble -> IO ()
+foreign import ccall unsafe "add_sight" add_sight :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble -> CSize -> IO ()
 foreign import ccall unsafe "add_boundary" add_boundary :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble ->  IO ()
 foreign import ccall unsafe "add_stop" add_stop :: Ptr Simulator -> CString -> CInt -> CDouble -> CInt -> CDouble ->  IO ()
 foreign import ccall unsafe "add_tvd" add_tvd :: Ptr Simulator -> CString -> IO ()
@@ -106,8 +106,7 @@ withSimulator spec objmap f = do
       SignalSpec dir det -> add_signal isptr nullPtr up1 up1d down1 down1d (dirRepr dir) (fromIntegral det)
       DetectorSpec uptvd downtvd -> add_detector isptr nullPtr up1 up1d down1 down1d 
         (maybeIntRepr uptvd) (maybeIntRepr downtvd)
-      SightSpec x k -> add_sight isptr nullPtr up1 up1d down1 down1d 
-        (fromIntegral x) (realToFrac k)
+      SightSpec x -> add_sight isptr nullPtr up1 up1d down1 down1d (fromIntegral x) 
       BoundarySpec -> add_boundary isptr nullPtr up1 up1d down1 down1d
       StopSpec -> add_stop isptr nullPtr up1 up1d down1 down1d
       TVDSpec -> add_tvd isptr nullPtr

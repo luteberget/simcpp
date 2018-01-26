@@ -54,7 +54,7 @@ struct LinkSpec {
 
 struct ISObjSpec {
   enum class ISObjType { Signal, Detector, Sight, Switch, Boundary, Stop, TVD };
-  const char *name;
+  string name;
   ISObjType type;
   short n_up;
   short n_down;

@@ -7,7 +7,8 @@ module TrainSim.ConvertInput (
   resolveIds, completeLinks, Link,
   isObjs, isObjData, upLinks, downLinks, ISObjTypeSpec(..), RouteSpec(..),
   isRoutes,
-  convert, convertPlan, Plan, PlanItem(..), TrainRunSpec(..)
+  convert, convertPlan, Plan, PlanItem(..), TrainRunSpec(..),
+  toISGraphFormat
   ) where
 
 import Data.Maybe (listToMaybe, fromMaybe, isJust, maybeToList, isNothing, fromJust, catMaybes)
@@ -40,7 +41,7 @@ data TrainRunSpec id
 data ISObjTypeSpec id
   = SignalSpec Direction id
   | DetectorSpec (Maybe id) (Maybe id) -- tvd up tvd down
-  | SightSpec id Double -- distance to signal
+  | SightSpec id -- Sight point to signal
   | SwitchSpec SwitchPosition -- one or two connections + default state
   | BoundarySpec 
   | StopSpec 
@@ -135,6 +136,15 @@ convertRoutes objMap is = (fmap convertInternal internalRoutes) ++
     convertRelease r = (objMap Map.! (Input.trigger r), 
                         fmap (\x -> objMap Map.! x) (Input.resources r))
 
+toISGraphFormat :: (Monad m) => Input.Infrastructure -> (String -> m ()) -> m ()
+toISGraphFormat input f = sequence_ [ f s | s <- fmap toString objs ]
+  where 
+    objs = completeLinks singlyLinkedObjs
+    (objMap,singlyLinkedObjs) = resolveIds (mkInfrastructureObjs input)
+
+    toString :: ISObjSpec Int -> String
+    toString o = "obj " ++ 
+
 convert :: Input.Infrastructure -> (Infrastructure Int, Map String Int)
 convert input = (Infrastructure isGraph isRoutes, objMap)
   where
@@ -202,6 +212,7 @@ fresh = do
 componentLocation :: Input.Component -> Input.Location
 componentLocation (Input.Signal _ (loc,_) _) = loc
 componentLocation (Input.Detector _ loc _ _) = loc
+componentLocation (Input.Sight _ loc) = loc
 
 data NodeComponent = NComponent Input.Component | NBoundary String BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
 
@@ -254,7 +265,7 @@ resolveIds inputs = (refmap, fmap tr inputs)
     trSpec :: ISObjTypeSpec String -> ISObjTypeSpec Int
     trSpec (SignalSpec d det) = SignalSpec d (trid det)
     trSpec (DetectorSpec a b) = DetectorSpec (fmap trid a) (fmap trid b)
-    trSpec (SightSpec a l) = SightSpec (trid a) l
+    trSpec (SightSpec a) = SightSpec (trid a)
     trSpec (SwitchSpec s) = SwitchSpec s
     trSpec BoundarySpec = BoundarySpec
     trSpec StopSpec = StopSpec
@@ -271,7 +282,9 @@ mkInfrastructureObjs is = evalState go 0
     trackNameMap :: Map String Input.Track
     trackNameMap = Map.fromList [(id,t) | t <- Input.tracks is, let id = Input.trackId t]
 
-    tcomponents t = (tsignals t) ++ (tdetectors t)
+    tcomponents t = (tsignals t) ++ (tdetectors t) ++ (tsights t)
+    tsights t   = [ s | s@(Input.Sight _ (Input.Location tref _)) <- Input.components is
+                       , tref == (Input.trackId t) ]
     tsignals t   = [ s | s@(Input.Signal _ ((Input.Location tref _),_) _) <- Input.components is
                        , tref == (Input.trackId t) ]
     tdetectors t = [ d | d@(Input.Detector _ (Input.Location tref _) _ _) <- Input.components is
@@ -332,6 +345,7 @@ mkInfrastructureObjs is = evalState go 0
     nodeToObj :: NodeComponent -> [(ObjRef,Double)] -> (ISObjTypeSpec ObjRef, [Link ObjRef])
     nodeToObj (NComponent (Input.Signal name (_,dir) detector)) [lnk] = (SignalSpec dir detector, [lnk])
     nodeToObj (NComponent (Input.Detector _ _ up down)) [lnk] = (DetectorSpec up down, [lnk])
+    nodeToObj (NComponent (Input.Sight s _)) [lnk] = (SightSpec s, [lnk])
     -- TVDs should not appear here (they have no location on the track graph)
     nodeToObj (NBoundary name _) links = (BoundarySpec, links)
     nodeToObj (NStop _) links = (StopSpec, links)
