@@ -1,0 +1,31 @@
+// Sketch of a small front-end language extension to better support
+// simulations. Not sure if this is even a good idea.
+
+process Car(string name) {
+  double target_time = sim->get_now() + 100.0;
+  bool finished = false;
+} do {
+  while(!finished) {
+    await(sim->timeout(5.0));
+    printf("Car %s running at %g.\n", name.c_str(), sim->get_now());
+    if(sim->get_now() >= target_time) finished = true;
+  }
+};
+
+process TwoCars do {
+  await(sim->start<Car>("C1") && sim->start<Car>("C2"));
+  printf("Both cars finished");
+};
+
+int main() {
+  auto sim = Simulation::create();
+
+  sim->start(process do {
+    await(sim->start<Car>("C1") && sim->start<Car>("C2"));
+    printf("Both cars finished");
+  });
+
+  sim->advance_by(10000);
+
+  return 0;
+}
