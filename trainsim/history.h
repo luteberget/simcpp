@@ -4,8 +4,9 @@
 #include "inputs.h"
 using std::string;
 
-struct History
+class HistoryItem
 {
+public:
   enum class ItemType
   {
     RouteActivation,
@@ -19,46 +20,90 @@ struct History
     Start,
     End
   };
-  class RouteActivation
+  struct RouteActivation
   {
     StartEnd status;
     string *route;
   };
-  class Allocation
+  struct Allocation
   {
     StartEnd status;
     string *resource;
   };
-  class SignalAspect
+  struct SignalAspect
   {
-    string *signal;
     bool green;
+    string *signal;
   };
-  class MovablePosition
+  struct MovablePosition
   {
-    string *resource;
     SwitchState position;
+    string *resource;
   };
-  class TrainStatus
+  struct TrainStatus
   {
     TrainAction action;
     double x;
     double v;
+    string* name;
   };
 
-  class HistoryItem
+  ItemType tag;
+  union {
+    RouteActivation routeActivation;
+    Allocation allocation;
+    SignalAspect signalAspect;
+    MovablePosition movablePosition;
+    TrainStatus trainStatus;
+  };
+
+  static HistoryItem mkRouteActivation(StartEnd status, string *name)
   {
-    ItemType tag;
-    union {
-      RouteActivation routeActivation;
-      Allocation allocation;
-      SignalAspect signalAspect;
-      MovablePosition movablePosition;
-      TrainStatus trainStatus;
-    };
-  };
+    HistoryItem i;
+    i.tag = ItemType::RouteActivation;
+    i.routeActivation = {status, name};
+    return i;
+  }
+  static HistoryItem mkAllocation(StartEnd status, string *name)
+  {
+    HistoryItem i;
+    i.tag = ItemType::Allocation;
+    i.allocation = {status, name};
+    return i;
+  }
+    static HistoryItem mkSignalAspect(bool green, string *name)
+  {
+    HistoryItem i;
+    i.tag = ItemType::SignalAspect;
+    i.signalAspect = {green, name};
+    return i;
+  }
+  static HistoryItem mkMovablePosition(SwitchState state, string *name)
+  {
+    HistoryItem i;
+    i.tag = ItemType::MovablePosition;
+    i.movablePosition = {state, name};
+    return i;
+  }
+  static HistoryItem mkTrainStatus(TrainAction action, double x, double v, string* name) {
+    HistoryItem i;
+    i.tag = ItemType::TrainStatus;
+    i.trainStatus = {action, x, v, name};
+    return i;
+  }
 
-  vector<HistoryItem> items;
+  
+};
+
+struct History
+{
+  vector<pair<double, HistoryItem>> items;
+};
+
+class OutputWriter
+{
+public:
+  virtual void write(HistoryItem h) = 0;
 };
 
 #endif

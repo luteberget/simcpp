@@ -130,6 +130,8 @@ InfrastructureSpec parse_infrastructure(std::istream& input) {
     else if(type == "release") {
       auto release = parse_release(input);
       is.routes[release.first].releases.push_back(release.second);
+    } else if(type == "plan") {
+      break;
     }
     else throw string("Unexpected: ") + type;
   }
@@ -137,6 +139,10 @@ InfrastructureSpec parse_infrastructure(std::istream& input) {
 }
 
 TrainRunSpec parse_traindata(std::istream& input) {
+  // train 100.0 train1
+  //   acc brk vel len
+  //   dir auth
+  //   boundary_id
   return { { parse_double(input), parse_double(input), 
              parse_double(input), parse_double(input) }, // LinearTrainParam
            parse_dir(input), parse_double(input), 
@@ -154,6 +160,11 @@ Plan parse_plan(std::istream& input) {
     else if(type == "train") {
       plan.items.push_back( { Plan::ItemType::Train, parse_double(input), 
                                    parse_string(input), parse_traindata(input) } );
+      auto& item = plan.items[plan.items.size()-1];
+      printf("Parsed train l=%g, auth=%g, startnode=%lu\n", 
+        item.trainData.params.length, 
+        item.trainData.startAuthorityLength,
+        item.trainData.startLoc.obj);
     }
     else throw string("Unexpected: ") + type;
   }

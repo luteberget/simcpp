@@ -96,7 +96,7 @@ struct InfrastructureSpec {
 };
 
 struct Plan {
-  enum class ItemType { Route, Train };
+  enum class ItemType { Route, Train, EndOfPlan };
   struct PlanItem {
     ItemType type;
     double dt;

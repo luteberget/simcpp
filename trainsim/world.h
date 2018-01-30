@@ -11,7 +11,8 @@ using std::string;
 
 #include "objects/infrastructure_object.h"
 #include "objects/route.h"
-
+#include "objects/train.h"
+#include "history.h"
 
 class World {
 public:
@@ -22,9 +23,12 @@ public:
   unordered_map<string, Route> routes;
 
   // Trains
-  vector<Train> trains;
+  //vector<Train> trains;
 
-  static World Create(shared_ptr<Simulation> sim, InfrastructureSpec& is);
+  shared_ptr<Simulation> sim;
+  unique_ptr<OutputWriter> output;
+
+  static World Create(InfrastructureSpec &is, shared_ptr<Simulation> sim, unique_ptr<OutputWriter> output);
 };
 
 #endif

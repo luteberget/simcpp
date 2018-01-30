@@ -3,7 +3,7 @@
 
 #include "simcpp.h"
 
-#define OBSERVABLE_PROPERTY(TYP, NAM, VAL)                      \
+#define OBSERVABLE_PROPERTY(TYP, NAM, VAL)                 \
 private:                                                        \
   TYP NAM = VAL;                                                \
                                                                 \

@@ -3,7 +3,7 @@
 using std::pair;
 using std::vector;
 
-pair<double, double> trainUpdate(const LinearTrainParams &p, double v,
+PosVel trainUpdate(const LinearTrainParams &p, double v,
                                  const LinearTrainStep &s)
 {
   if (s.action == TrainAction::Accel)
@@ -27,9 +27,9 @@ LinearTrainStep trainStep(const LinearTrainParams &p, double max_x, double v,
                           const LinearTrainSpeedRestrictions &r)
 {
 
-  printf("entering trainStep(-, %g, %g, {", max_x, v);
+  printf("    entering trainStep(-, %g, %g, {", max_x, v);
   for (auto &x : r.ahead)
-    printf("{%g, %g} ", x.first, x.second);
+    printf("{%g, %g} ", x.dist, x.velocity);
   printf("}\n");
 
   // Can we accelerate?
@@ -56,8 +56,8 @@ LinearTrainStep trainStep(const LinearTrainParams &p, double max_x, double v,
     double brake_time = 0.0;
     for (auto &ri : r.ahead)
     {
-      double r_dx = ri.first;
-      double r_v = ri.second;
+      double r_dx = ri.dist;
+      double r_v = ri.velocity;
 
       double b_dx = (target_max * target_max - r_v * r_v) / (2 * p.max_brk);
       if (r_dx < a_dx + b_dx)
@@ -103,8 +103,8 @@ LinearTrainStep trainStep(const LinearTrainParams &p, double max_x, double v,
     double brake_time = 0.0;
     for (auto &ri : r.ahead)
     {
-      double r_dx = ri.first;
-      double r_v = ri.second;
+      double r_dx = ri.dist;
+      double r_v = ri.velocity;
       double b_dx = (v * v - r_v * r_v) / (2 * p.max_brk);
       double b_dt = (v - r_v) / p.max_brk;
       double d_dx = r_dx - b_dx;

@@ -5,7 +5,8 @@
 #include "../simobj.h"
 typedef shared_ptr<Simulation> Sim;
 
-class Resource : protected EnvObj {
+class Resource : protected EnvObj, public ISObj
+{
   OBSERVABLE_PROPERTY(bool, allocated, false)
 public:
   Resource(Sim s) : EnvObj(s) {}

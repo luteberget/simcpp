@@ -3,13 +3,14 @@
 
 #include "infrastructure_object.h"
 #include "detector.h"
-
+#include "../history.h"
 
 class Signal : protected EnvObj, public ISObj {
 public:
   Direction dir;
   Detector *detector;
-  Signal(Sim s, Direction dir) : EnvObj(s), dir(dir) {}
+  OutputWriter* out;
+  Signal(Sim s, OutputWriter* o, Direction dir) : EnvObj(s), dir(dir), out(o) {}
   OBSERVABLE_PROPERTY(bool, green, false)
   OBSERVABLE_PROPERTY(double, authority, 0.0)
 };

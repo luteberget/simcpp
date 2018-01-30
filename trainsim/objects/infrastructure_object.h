@@ -12,6 +12,7 @@ struct Link {
 
 class ISObj {
 public:
+  string name;
   Link down;
   Link up;
 

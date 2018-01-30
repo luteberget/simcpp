@@ -6,6 +6,8 @@ using std::pair;
 #include "tvd.h"
 #include "switch.h"
 #include "signal.h"
+#include "../history.h"
+using StartEnd = HistoryItem::StartEnd;
 
 typedef pair<TVD *, vector<Resource *>> ReleaseDef;
 
@@ -16,20 +18,19 @@ class Route : protected EnvObj
     Signal *entrySignal;
     vector<ReleaseDef> releases;
     double length;
+    OutputWriter* out;
+    string name;
 
   public:
-    Route(Sim s, Signal *entrySignal, vector<pair<Switch *, SwitchState>> swPos,
+    Route(Sim s, OutputWriter* out, string name,
+        Signal *entrySignal, vector<pair<Switch *, SwitchState>> swPos,
           vector<TVD *> tvds, vector<ReleaseDef> releases, double length)
         : EnvObj(s), switchPositions(swPos), tvds(tvds), entrySignal(entrySignal),
-          releases(releases), length(length)
-    {
-
-        printf("creating route, sim=%p\n", s.get());
-    }
+          releases(releases), length(length), out(out), name(name)
+    {}
 
     shared_ptr<Process> activate()
     {
-        printf("route::activate %p\n", this->env.get());
         return this->env->start_process<RouteActivation>(this);
     }
 
@@ -57,10 +58,15 @@ class Route : protected EnvObj
         Route *route;
         void reserve_resources()
         {
-            for (auto &t : this->route->tvds)
+            for (auto &t : this->route->tvds) {
                 t->set_allocated(true);
-            for (auto &s : this->route->switchPositions)
+                route->out->write(HistoryItem::mkAllocation(StartEnd::Start, &t->name));
+            }
+                
+            for (auto &s : this->route->switchPositions) {
                 s.first->set_allocated(true);
+                route->out->write(HistoryItem::mkAllocation(StartEnd::Start, &s.first->name));
+            }
         }
 
         shared_ptr<Process> turn_switches()
@@ -93,12 +99,11 @@ class Route : protected EnvObj
         virtual bool Run()
         {
             PT_BEGIN();
-            printf("begin activate\n");
+            route->out->write(HistoryItem::mkRouteActivation(StartEnd::Start, &route->name));
             while (!this->route->resources_available())
             {
                 PROC_WAIT_FOR(wait_busy_resources());
             }
-            printf("reserve\n");
             reserve_resources();
             while (!this->route->switches_correct())
             {
@@ -107,13 +112,11 @@ class Route : protected EnvObj
             // Release triggers
             for (auto &t : this->route->releases)
             {
-                printf("trigger\n");
-                this->sim->start_process<ReleaseTrigger>(t.first, t.second);
+                this->sim->start_process<ReleaseTrigger>(route->out, t.first, t.second);
             }
             // Green entry signal
-            printf("open signal\n");
             this->route->open_signal();
-            printf("activation finished\n");
+            route->out->write(HistoryItem::mkRouteActivation(StartEnd::End, &route->name));
             PT_END();
         }
     };
@@ -122,13 +125,15 @@ class Route : protected EnvObj
     {
         Signal *sig;
         Detector *d;
+        OutputWriter* out;
 
       public:
-        CatchSignal(Sim s, Signal *sig) : Process(s), sig(sig) {}
+        CatchSignal(Sim s, Signal *sig, OutputWriter* out) : Process(s), sig(sig), out(out) {}
         virtual bool Run()
         {
             PT_BEGIN();
             PROC_WAIT_FOR(sig->detector->touched_event);
+            out->write(HistoryItem::mkSignalAspect(false, &sig->name));
             sig->set_green(false);
             sig->set_authority(0.0);
             PT_END();
@@ -138,26 +143,30 @@ class Route : protected EnvObj
     {
         TVD *tvd;
         vector<Resource *> resources;
+        OutputWriter* out;
 
       public:
-        ReleaseTrigger(Sim s, TVD *tvd, vector<Resource *> resources)
-            : Process(s), tvd(tvd), resources(resources) {}
+        ReleaseTrigger(Sim s, OutputWriter* out, TVD *tvd, vector<Resource *> resources)
+            : Process(s), tvd(tvd), resources(resources), out(out) {}
         virtual bool Run()
         {
             PT_BEGIN();
             PROC_WAIT_FOR(tvd->occupied_event);
             PROC_WAIT_FOR(tvd->occupied_event);
-            for (auto &r : resources)
+            for (auto &r : resources) {
+                out->write(HistoryItem::mkAllocation(StartEnd::End, &r->name));
                 r->set_allocated(false);
+            }
             PT_END();
         }
     };
 
     shared_ptr<Event> open_signal()
     {
+        this->out->write(HistoryItem::mkSignalAspect(true, &this->entrySignal->name));
         this->entrySignal->set_green(true);
         this->entrySignal->set_authority(this->length);
-        return this->env->start_process<CatchSignal>(entrySignal);
+        return this->env->start_process<CatchSignal>(entrySignal, out);
     }
 };
 

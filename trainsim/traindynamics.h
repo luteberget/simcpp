@@ -10,9 +10,15 @@
 using std::vector;
 using std::pair;
 
+struct PosVel
+{
+    double dist;
+    double velocity;
+};
+
 struct LinearTrainSpeedRestrictions {
   double vmax;                        // Current limitation
-  vector<pair<double, double>> ahead; // Limitations ahead (dx,v)
+  vector<PosVel> ahead; // Limitations ahead (dx,v)
 };
 
 struct LinearTrainStep {
@@ -20,7 +26,7 @@ struct LinearTrainStep {
   double dt;
 };
 
-pair<double, double> trainUpdate(const LinearTrainParams &p, double v,
+PosVel trainUpdate(const LinearTrainParams &p, double v,
                                  const LinearTrainStep &s);
 LinearTrainStep trainStep(const LinearTrainParams &p, double max_x, double v,
                           const LinearTrainSpeedRestrictions &r);

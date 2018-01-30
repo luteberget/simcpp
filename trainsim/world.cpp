@@ -35,14 +35,16 @@ void set_switch_next(Switch &sw, const ISObjSpec &spec, const vector<unique_ptr<
     }
 }
 
-void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is)
+void mk_infrastructure(World &world, const InfrastructureSpec &is)
 {
+    auto& sim = world.sim;
+    auto output = world.output.get();
     vector<unique_ptr<ISObj>> graphObjs;
     for (auto &spec : is.driveGraph)
     {
         if (spec.type == ISObjSpec::ISObjType::Signal)
         {
-            graphObjs.emplace_back(new Signal(sim, spec.signal.dir));
+            graphObjs.emplace_back(new Signal(sim, output, spec.signal.dir));
         }
         else if (spec.type == ISObjSpec::ISObjType::Detector)
         {
@@ -54,7 +56,7 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is)
         }
         else if (spec.type == ISObjSpec::ISObjType::Switch)
         {
-            graphObjs.emplace_back(new Switch(sim, spec.sw.default_state));
+            graphObjs.emplace_back(new Switch(sim, output, spec.sw.default_state));
         }
         else if (spec.type == ISObjSpec::ISObjType::Boundary)
         {
@@ -77,6 +79,8 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is)
     for (size_t i = 0; i < is.driveGraph.size(); i++)
     {
         auto &spec = is.driveGraph[i];
+        graphObjs[i]->name = spec.name;
+
         if (spec.n_up >= 1)
             graphObjs[i]->up = mk_link(spec.up[0], graphObjs);
         if (spec.n_down >= 1)
@@ -110,7 +114,9 @@ void mk_infrastructure(Sim sim, World &world, const InfrastructureSpec &is)
     world.objects = std::move(graphObjs);
 }
 
-void mk_routes(Sim sim, World &world, const InfrastructureSpec &is) {
+void mk_routes(World &world, const InfrastructureSpec &is) {
+  auto& sim = world.sim;
+  auto output = world.output.get();
   for (auto &i_route : is.routes) {
     auto &route = i_route.second;
     vector<pair<TVD *, vector<Resource *>>> releases;
@@ -136,16 +142,17 @@ void mk_routes(Sim sim, World &world, const InfrastructureSpec &is) {
     }
 
     printf("Constructing route %s\n", i_route.first.c_str());
-    world.routes.emplace(i_route.first, Route(sim, entrySignal, swPos, tvds,
+    world.routes.emplace(i_route.first, Route(sim, output, i_route.first, entrySignal, swPos, tvds,
                                               releases, route.length));
   }
 }
 
-
-World World::Create(Sim sim, InfrastructureSpec &is)
+World World::Create(InfrastructureSpec &is, shared_ptr<Simulation> sim, unique_ptr<OutputWriter> output)
 {
     World world;
-    mk_infrastructure(sim, world, is);
-    mk_routes(sim, world, is);
+    world.sim = sim;
+    world.output = std::move(output);
+    mk_infrastructure(world, is);
+    mk_routes(world, is);
     return world;
 }
