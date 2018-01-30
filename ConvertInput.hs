@@ -19,6 +19,7 @@ import qualified Data.Map as Map
 import Data.Map (Map)
 import qualified Data.Set as Set
 import Data.Set (Set)
+import Data.List (intercalate)
 
 import Data.Char (toLower)
 
@@ -139,11 +140,21 @@ convertRoutes objMap is = (fmap convertInternal internalRoutes) ++
     convertRelease r = (objMap Map.! (Input.trigger r), 
                         fmap (\x -> objMap Map.! x) (Input.resources r))
 
+lengthPrefixedList :: [a] -> (a -> String) -> String
+lengthPrefixedList xs f = intercalate " " ((show (length xs)): [ f x | x <- xs ])
+
 toISGraphFormat :: (Monad m) => Input.Infrastructure -> (String -> m ()) -> m ()
-toISGraphFormat input f = sequence_ [ f s | s <- fmap toString objs ]
+toISGraphFormat input f = sequence_ ([ f s | s <- fmap toString objs ] ++
+                                     [ f r | r <- join (fmap routeString (filter signalRoutes (Input.routes input))) ])
   where 
     objs = completeLinks singlyLinkedObjs
     (objMap,singlyLinkedObjs) = resolveIds (mkInfrastructureObjs input)
+
+    signalRoutes :: Input.Route -> Bool
+    signalRoutes r = case Input.entry r of
+        Input.RoutePointSignal _ -> True
+        _ -> False
+    
 
     toString :: ISObjSpec Int -> String
     toString (ISObjSpec id name dat up down) = "obj " ++ name ++ " "++  (links up) ++ " " ++ (links down) ++ " " ++ (specToString dat)
@@ -164,6 +175,32 @@ toISGraphFormat input f = sequence_ [ f s | s <- fmap toString objs ]
       where
         link (id,dist) = " " ++ (show id) ++ " " ++ (show dist)
 
+
+    routeString :: Input.Route -> [String]
+    routeString r = ((aquire r):(map (release (Input.routeName r)) (Input.releases r)))
+
+    aquire :: Input.Route -> String
+    aquire r = intercalate " " 
+                 ["route", Input.routeName r, reprRoutePoint (Input.entry r),
+                  show (Input.length r), 
+                  lengthPrefixedList (Input.tvds r) (show .((Map.!) objMap)), 
+                  lengthPrefixedList (Input.switchPos r) swposRepr ]
+      where
+        swposRepr :: (Input.NodeRef, Input.SwitchPosition) -> String
+        swposRepr (x,p) = show (objMap Map.! x) ++ " " ++ reprSwitchPosition p
+
+        reprSwitchPosition Input.SwLeft = "left"
+        reprSwitchPosition Input.SwRight = "right"
+
+        reprRoutePoint :: Input.RoutePoint -> String
+        reprRoutePoint (Input.RoutePointBoundary _) = error "route start in boundary"
+        reprRoutePoint (Input.RoutePointSignal s) = show (objMap Map.! s)
+        reprRoutePoint (Input.RoutePointTrackEnd) = error "route start in track end"
+
+    release :: String -> Input.ReleaseSpec -> String
+    release name (Input.ReleaseSpec trig ress) = intercalate " "
+                                      ["release", name, show (objMap Map.! trig),
+                                       lengthPrefixedList ress (show . ((Map.!) objMap)) ]
 
 --data ISObjTypeSpec id
 --  = SignalSpec Direction id
