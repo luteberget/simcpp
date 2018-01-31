@@ -18,8 +18,42 @@ using std::shared_ptr;
 using std::unique_ptr;
 using std::vector;
 
-class Event;
 class Process;
+class Simulation;
+class Event
+{
+private:
+  unique_ptr<vector<shared_ptr<Process>>> listeners;
+
+protected:
+  shared_ptr<Simulation> sim;
+  int value = -1;
+
+public:
+  Event(shared_ptr<Simulation> sim)
+      : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
+
+  void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
+  bool is_processed() { return this->listeners == nullptr; }
+  int get_value() { return this->value; }
+  void fire();
+
+  bool is_triggered() { return this->value != -1; }
+  bool is_success() { return this->value == 1; }
+  bool is_failed() { return this->value == 2; }
+};
+
+class Process : public Event,
+                public Protothread,
+                public std::enable_shared_from_this<Process>
+{
+public:
+  Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
+  void resume();
+  void abort();
+  virtual void Aborted(){};
+};
+
 class Simulation : public std::enable_shared_from_this<Simulation>
 {
 
@@ -45,10 +79,15 @@ public:
   {
     return std::make_shared<Simulation>();
   }
-  shared_ptr<Process> run_process(shared_ptr<Process> p);
+
+  template<class T> shared_ptr<T> run_process(shared_ptr<T> p)
+  {
+    p->resume();
+    return p;
+  }
 
   template <class T, class... Args>
-  shared_ptr<Process> start_process(Args &&... args)
+  shared_ptr<T> start_process(Args &&... args)
   {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
@@ -85,42 +124,6 @@ public:
   }
   double get_now() { return this->now; }
 };
-
-class Event
-{
-private:
-  unique_ptr<vector<shared_ptr<Process>>> listeners;
-
-protected:
-  shared_ptr<Simulation> sim;
-  int value = -1;
-
-public:
-  Event(shared_ptr<Simulation> sim)
-      : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
-
-  void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
-  bool is_processed() { return this->listeners == nullptr; }
-  int get_value() { return this->value; }
-  void fire();
-
-  bool is_triggered() { return this->value != -1; }
-  bool is_success() { return this->value == 1; }
-  bool is_failed() { return this->value == 2; }
-};
-
-class Process : public Event,
-                public Protothread,
-                public std::enable_shared_from_this<Process>
-{
-public:
-  Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
-  void resume();
-  void abort();
-  virtual void Aborted(){};
-};
-
-
 
 class AnyOf : public Process
 {
@@ -164,6 +167,5 @@ public:
     PT_END();
   }
 };
-
 
 #endif

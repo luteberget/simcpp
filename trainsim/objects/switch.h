@@ -46,20 +46,20 @@ public:
   Link left, right, entry;
   Direction splitDir;
 
-  Link *next(Direction dir) override
+  Link next(Direction dir) override
   {
     if (dir == this->splitDir)
     {
       if (this->state == SwitchState::Left)
-        return &this->left;
+        return this->left;
       if (this->state == SwitchState::Right)
-        return &this->right;
-      return nullptr; // TODO detect derailing
+        return this->right;
+      return NoLink; // TODO detect derailing
     }
     else
     {
       // TODO detect derailing
-      return &this->entry;
+      return this->entry;
     }
   }
   shared_ptr<Process> turn(SwitchState s)

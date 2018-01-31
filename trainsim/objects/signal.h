@@ -13,6 +13,10 @@ public:
   Signal(Sim s, OutputWriter* o, Direction dir) : EnvObj(s), dir(dir), out(o) {}
   OBSERVABLE_PROPERTY(bool, green, false)
   OBSERVABLE_PROPERTY(double, authority, 0.0)
+
+  virtual void arrive_front(Train& t) override {
+    t.cannot_see(this);
+  }
 };
 
 #endif

@@ -6,24 +6,32 @@
 
 class ISObj;
 struct Link {
-  ISObj *obj = nullptr;
+  ISObj *obj;
   double length;
 };
+
+inline bool operator==(const Link& lhs, const Link& rhs)
+{
+    return lhs.obj == rhs.obj && lhs.length == rhs.length;
+}
+
+static const Link NoLink = {nullptr, 0.0};
+static const Link BoundaryLink = {nullptr, std::numeric_limits<double>::infinity()};
 
 class ISObj {
 public:
   string name;
-  Link down;
-  Link up;
+  Link down = NoLink;
+  Link up = NoLink;
 
   virtual void arrive_front(Train &t){};
   virtual void arrive_back(Train &t){};
-  virtual Link *next(Direction dir) {
+  virtual Link next(Direction dir) {
     if (dir == Direction::Up)
-      return &this->up;
+      return this->up;
     if (dir == Direction::Down)
-      return &this->down;
-    return nullptr;
+      return this->down;
+    return {nullptr, 0.0}; // Unreachable
   }
 };
 

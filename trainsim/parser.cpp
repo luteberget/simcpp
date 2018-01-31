@@ -29,9 +29,13 @@ size_t parse_size(std::istream& input) {
 }
 
 double parse_double(std::istream& input) {
-  double x; input >> x;
+  string x; input >> x;
   if(input.fail()) throw string("Expected number.\n");
-  return x;
+  try {
+  return std::stod(x);
+  } catch (std::invalid_argument a) {
+    throw string("Expected number.\n");
+  }
 }
 
 void expect(std::istream& input, string s) {

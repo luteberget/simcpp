@@ -69,11 +69,7 @@ void Event::fire()
   }
 }
 
-shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p)
-{
-  p->resume();
-  return p;
-}
+
 
 shared_ptr<Event> Simulation::timeout(double delay)
 {

@@ -23,29 +23,29 @@ public:
   struct RouteActivation
   {
     StartEnd status;
-    string *route;
+    const string *route;
   };
   struct Allocation
   {
     StartEnd status;
-    string *resource;
+    const string *resource;
   };
   struct SignalAspect
   {
     bool green;
-    string *signal;
+    const string *signal;
   };
   struct MovablePosition
   {
     SwitchState position;
-    string *resource;
+    const string *resource;
   };
   struct TrainStatus
   {
     TrainAction action;
     double x;
     double v;
-    string* name;
+    const string* name;
   };
 
   ItemType tag;
@@ -57,35 +57,35 @@ public:
     TrainStatus trainStatus;
   };
 
-  static HistoryItem mkRouteActivation(StartEnd status, string *name)
+  static HistoryItem mkRouteActivation(StartEnd status, const string *name)
   {
     HistoryItem i;
     i.tag = ItemType::RouteActivation;
     i.routeActivation = {status, name};
     return i;
   }
-  static HistoryItem mkAllocation(StartEnd status, string *name)
+  static HistoryItem mkAllocation(StartEnd status, const string *name)
   {
     HistoryItem i;
     i.tag = ItemType::Allocation;
     i.allocation = {status, name};
     return i;
   }
-    static HistoryItem mkSignalAspect(bool green, string *name)
+    static HistoryItem mkSignalAspect(bool green, const string *name)
   {
     HistoryItem i;
     i.tag = ItemType::SignalAspect;
     i.signalAspect = {green, name};
     return i;
   }
-  static HistoryItem mkMovablePosition(SwitchState state, string *name)
+  static HistoryItem mkMovablePosition(SwitchState state, const string *name)
   {
     HistoryItem i;
     i.tag = ItemType::MovablePosition;
     i.movablePosition = {state, name};
     return i;
   }
-  static HistoryItem mkTrainStatus(TrainAction action, double x, double v, string* name) {
+  static HistoryItem mkTrainStatus(TrainAction action, double x, double v, const string* name) {
     HistoryItem i;
     i.tag = ItemType::TrainStatus;
     i.trainStatus = {action, x, v, name};

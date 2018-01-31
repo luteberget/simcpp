@@ -4,6 +4,7 @@
 #include "../inputs.h"
 #include "../history.h"
 #include "../simcpp.h"
+#include "../traindynamics.h"
 using std::vector;
 typedef shared_ptr<Simulation> Sim;
 
@@ -18,7 +19,6 @@ struct TrainLoc
 
 struct TrainRun
 {
-    string name;
     LinearTrainParams params;
     Direction startDir;
     double startAuthorityLength;
@@ -49,8 +49,9 @@ class Train : public Process
     double velocity;
     double max_velocity;
     Direction dir;
-    TrainAction action;
     double time;
+    LinearTrainStep step;
+    double has_exited = false;
 
     // Current authority and signals in sight
     double authority;
@@ -68,15 +69,16 @@ class Train : public Process
     const TrainLoc &get_location() const { return location; }
     const vector<ObjDist> &get_nodes_under_train() const { return nodesUnderTrain; }
 
-    Train(Sim s, OutputWriter *out, TrainRun trainRun)
-        : Process(s), out(out), name(trainRun.name), params(trainRun.params)
+    Train(Sim s, OutputWriter *out, string name, TrainRun trainRun)
+        : Process(s), out(out), name(name), params(trainRun.params)
     {
         authority = trainRun.startAuthorityLength;
         velocity = 0.0;
+        max_velocity = 2.0;
         location = trainRun.startLoc;
         dir = trainRun.startDir;
         time = s->get_now();
-        
+
         if (location.offset >= params.length)
         {
             printf("ERROR: train is not at boundary");
@@ -85,7 +87,29 @@ class Train : public Process
         nodesUnderTrain.push_back({location.obj, params.length - location.offset});
     }
 
-    void add_sight(Signal *s, double d) {}
+    void can_see(Signal *s, double d)
+    {
+        signalInSight.push_back({s, d});
+        // Bubble sort it into place to ensure
+        // that signals are always sorted by distance.
+        size_t i = signalInSight.size() - 1;
+        while (i > 0 && signalInSight[i - 1].dist > signalInSight[i].dist)
+        {
+            std::swap(signalInSight[i - 1], signalInSight[i]);
+            i -= 1;
+        }
+    }
+
+    void cannot_see(Signal *s) {
+        for(int i = signalInSight.size()-1; i >= 0; i--) {
+            if(signalInSight[i].sig == s) {
+                signalInSight.erase(signalInSight.begin()+i);
+            }
+        }
+    }
+
+    void cleared_boundary() { has_exited = true; }
+
     Direction get_dir() { return dir; }
 
     virtual bool Run() override;
