@@ -141,7 +141,7 @@ void mk_routes(World &world, const InfrastructureSpec &is) {
       tvds.push_back((TVD *)world.objects[tvd].get());
     }
 
-    printf("Constructing route %s\n", i_route.first.c_str());
+    fprintf(stderr, "Constructing route %s\n", i_route.first.c_str());
     world.routes.emplace(i_route.first, Route(sim, output, i_route.first, entrySignal, swPos, tvds,
                                               releases, route.length));
   }

@@ -81,7 +81,7 @@ class Train : public Process
 
         if (location.offset >= params.length)
         {
-            printf("ERROR: train is not at boundary");
+            fprintf(stderr, "ERROR: train is not at boundary");
         }
 
         nodesUnderTrain.push_back({location.obj, params.length - location.offset});

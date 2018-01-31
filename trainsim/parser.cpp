@@ -71,7 +71,7 @@ ISObjSpec parse_obj(std::istream& input) {
   obj.n_down = parse_size(input);
   for(size_t i = 0; i < obj.n_down; i++) obj.down[i] = parse_link(input);
   string type = parse_string(input);
-  printf("object type %s\n", type.c_str());
+  fprintf(stderr, "object type %s\n", type.c_str());
   if(type == "signal")  {
     obj.type = ISObjSpec::ISObjType::Signal;
     obj.signal = parse_signal(input); }
@@ -165,7 +165,7 @@ Plan parse_plan(std::istream& input) {
       plan.items.push_back( { Plan::ItemType::Train, parse_double(input), 
                                    parse_string(input), parse_traindata(input) } );
       auto& item = plan.items[plan.items.size()-1];
-      printf("Parsed train l=%g, auth=%g, startnode=%lu\n", 
+      fprintf(stderr, "Parsed train l=%g, auth=%g, startnode=%lu\n", 
         item.trainData.params.length, 
         item.trainData.startAuthorityLength,
         item.trainData.startLoc.obj);

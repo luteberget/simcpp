@@ -12,7 +12,7 @@ double update_authority(double auth, vector<Sighted> &sighted)
 {
     for (auto &s : sighted)
     {
-        printf("->* Signal %p: %g %s\n", s.sig, s.sig->get_authority(), s.sig->get_green() ? "green" : "red");
+        fprintf(stderr, "->* Signal %p: %g %s\n", s.sig, s.sig->get_authority(), s.sig->get_green() ? "green" : "red");
         auth = s.dist + s.sig->get_authority();
         if (!s.sig->get_green())
         {
@@ -76,15 +76,11 @@ LinearTrainStep drive_dt(Train &t, const vector<PosVel> &speed_profile)
                           {t.get_max_velocity(), speed_profile});
     if (step.dt > TOL)
     {
-        printf("    Calculated timeout for driving: %g\n", step.dt);
+        fprintf(stderr, "    Calculated timeout for driving: %g\n", step.dt);
     }
     else
     {
-        if (step.action == TrainAction::Brake)
-            printf("BRAKE");
-        if (step.action == TrainAction::Coast)
-            printf("COAST");
-        printf("    No driving possible.\n");
+        fprintf(stderr, "    No driving possible.\n");
     }
 
     return step;
@@ -135,7 +131,7 @@ void Train::update()
         // Update train's position and velocity
         auto update = trainUpdate(params, velocity, {step.action, dt});
         velocity = update.velocity;
-        printf("    offset %g -> %g\n", location.offset, location.offset + update.dist);
+        fprintf(stderr, "    offset %g -> %g\n", location.offset, location.offset + update.dist);
         location.offset += update.dist;
 
         string mode;
@@ -145,7 +141,7 @@ void Train::update()
             mode = "BRAKE";
         if (step.action == TrainAction::Coast)
             mode = "COAST";
-        printf("TRAIN\t%s\t%g\t%g\t%g\t%p\t%g\n", 
+        fprintf(stderr, "TRAIN\t%s\t%g\t%g\t%g\t%p\t%g\n", 
         mode.c_str(), this->sim->get_now(),
                dt, this->location.offset, this->location.obj, this->velocity);
 
@@ -174,17 +170,17 @@ void Train::update()
         if (next_node.reason == TargetReason::ReachNode)
         {
             auto link = location.obj->next(dir);
-            printf("reached node %s\n", link.obj == nullptr ? "NoObject" : link.obj->name.c_str());
+            fprintf(stderr, "reached node %s\n", link.obj == nullptr ? "NoObject" : link.obj->name.c_str());
             location.obj = link.obj;
             location.offset -= link.length;
-            printf("updating offset to %g\n", location.offset);
+            fprintf(stderr, "updating offset to %g\n", location.offset);
             location.obj->arrive_front(*this);
             nodesUnderTrain.push_back({location.obj, params.length});
         }
         else if (next_node.reason == TargetReason::ClearNode)
         {
             auto cleared = nodesUnderTrain[0];
-            printf("Cleared node %p %s\n", cleared.obj, cleared.obj->name.c_str());
+            fprintf(stderr, "Cleared node %p %s\n", cleared.obj, cleared.obj->name.c_str());
             cleared.obj->arrive_back(*this);
             nodesUnderTrain.erase(this->nodesUnderTrain.begin());
         }

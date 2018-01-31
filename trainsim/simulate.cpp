@@ -44,15 +44,15 @@ void simulate(InfrastructureSpec &infrastructure, Plan &plan,
     vector<shared_ptr<Train>> trains;
     for (auto &planitem : plan.items)
     {
-        printf("    Next plan event at dt=%g, advancing time...\n", planitem.dt);
+        fprintf(stderr, "    Next plan event at dt=%g, advancing time...\n", planitem.dt);
         sim->advance_by(planitem.dt);
         if (planitem.type == Plan::ItemType::Route)
         {
-            printf("    Activating route %s\n", planitem.name.c_str());
+            fprintf(stderr, "    Activating route %s\n", planitem.name.c_str());
             auto route = world.routes.find(planitem.name);
             if (route == world.routes.end())
             {
-                printf("    ERROR finding route\n");
+                fprintf(stderr, "    ERROR finding route\n");
             }
             else
             {
@@ -61,22 +61,22 @@ void simulate(InfrastructureSpec &infrastructure, Plan &plan,
         }
         else if (planitem.type == Plan::ItemType::Train)
         {
-            printf("    STARTING TRAIN %s\n", planitem.name.c_str());
+            fprintf(stderr, "    STARTING TRAIN %s\n", planitem.name.c_str());
             auto &trainspec = planitem.trainData;
             auto trainInput = create_train_input(trainspec, world.objects);
             auto proc = sim->start_process<Train>(world.output.get(), planitem.name, trainInput);
             trains.push_back(proc);
         }
     }
-    printf("    Plan input done, finishing simulation\n");
+    fprintf(stderr, "    Plan input done, finishing simulation\n");
     sim->run();
-    printf("    Simulation finsihed\n");
+    fprintf(stderr, "    Simulation finsihed\n");
     vector<string> unfinishedTrains;
     for(auto& t: trains) {
         if(!t->is_success()) unfinishedTrains.push_back(t->name);
     }
     if(unfinishedTrains.size() > 0) {
-        printf("Warning: trains did not finish:\n");
-        for(auto& s  :unfinishedTrains) printf("  - %s\n",s.c_str());
+        fprintf(stderr, "Warning: trains did not finish:\n");
+        for(auto& s  :unfinishedTrains) fprintf(stderr, "  - %s\n",s.c_str());
     }
 }

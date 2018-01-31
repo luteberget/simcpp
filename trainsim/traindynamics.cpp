@@ -29,10 +29,10 @@ LinearTrainStep trainStep(const LinearTrainParams &p, double max_x, double v,
                           const LinearTrainSpeedRestrictions &r)
 {
 
-  printf("    entering trainStep(-, %g, %g, %g, {", max_x, v, r.vmax);
+  fprintf(stderr, "    entering trainStep(-, %g, %g, %g, {", max_x, v, r.vmax);
   for (auto &x : r.ahead)
-    printf("{%g, %g} ", x.dist, x.velocity);
-  printf("})\n");
+    fprintf(stderr, "{%g, %g} ", x.dist, x.velocity);
+  fprintf(stderr, "})\n");
 
   // Sanity: positive velocities
   v = positive(v);

@@ -27,7 +27,7 @@ private:
 
   void set_position(double p)
   {
-    printf("Switch set to %g.\n", p);
+    fprintf(stderr, "Switch set to %g.\n", p);
     position = p;
     if (p == 0.0)
       set_state_report(SwitchState::Left);
@@ -95,10 +95,10 @@ public:
     bool Run()
     {
       PT_BEGIN();
-      printf("Turning switch @%g.\n", this->sim->get_now());
+      fprintf(stderr, "Turning switch @%g.\n", this->sim->get_now());
       PROC_WAIT_FOR(
           sim->timeout(TURNING_TIME * std::abs(this->start - this->end)));
-      printf("Switch turned @%g.\n", this->sim->get_now());
+      fprintf(stderr, "Switch turned @%g.\n", this->sim->get_now());
       sw->set_position(end);
       sw->turning = nullptr;
       PT_END();
@@ -108,7 +108,7 @@ public:
     {
       double length = (this->sim->get_now() - this->start_time) / TURNING_TIME;
       double end_pos = this->start + sgn(this->end - this->start) * length;
-      printf("Switch turn aborted at %g %g\n", this->sim->get_now(), end_pos);
+      fprintf(stderr, "Switch turn aborted at %g %g\n", this->sim->get_now(), end_pos);
       sw->set_position(end_pos);
       sw->turning =
           nullptr; // TODO create Success and Finally virtual functions

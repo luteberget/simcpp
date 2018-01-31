@@ -87,9 +87,9 @@ int main()
     try
     {
         auto p = parse_simulatorinput(std::cin);
-        cout << "parsed " << p.infrastructure.driveGraph.size() << " objects" << endl;
-        cout << "parsed " << p.infrastructure.routes.size() << " routes" << endl;
-        cout << "parsed " << p.plan.items.size() << " plan items" << endl;
+        std::cerr << "parsed " << p.infrastructure.driveGraph.size() << " objects" << endl;
+        std::cerr << "parsed " << p.infrastructure.routes.size() << " routes" << endl;
+        std::cerr << "parsed " << p.plan.items.size() << " plan items" << endl;
 
         auto out = std::bind(write_historyitem, std::ref(std::cout), std::placeholders::_1);
         simulate(p.infrastructure, p.plan, out);
@@ -98,7 +98,7 @@ int main()
     }
     catch (string s)
     {
-        cout << s << endl;
+        std::cerr << s << endl;
         return 1;
     }
 }
