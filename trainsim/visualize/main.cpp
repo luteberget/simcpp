@@ -10,6 +10,7 @@
 #include <SDL.h>
 
 #include <vector>
+#include <iostream>
 using std::vector;
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -40,6 +41,41 @@ struct TrainPlot
     ImVec2 view_max;
     vector<Train> trains;
 };
+
+TrainPlot parse_plot(std::istream &in)
+{
+    TrainPlot p;
+    p.view_min = ImVec2(-5, -5);
+    p.view_max = ImVec2(15, 15);
+
+    TrainPlot::Train t;
+    t.name = "train1";
+    t.params = {1.0, 1.0, 1.0, 50.0};
+    t.history.push_back({0.0, 0.0, 0.0, TrainAction::Accel});
+    t.history.push_back({10.0, 10.0, 10.0, TrainAction::Coast});
+
+    p.trains.push_back(t);
+
+    return p;
+}
+
+enum class PlotType
+{
+    DistanceTime,
+    DistanceVelocity
+};
+
+ImVec2 normalize_plot_limits(const ImVec2 &v, TrainPlot &plot)
+{
+    return ImVec2(
+        (v.x - plot.view_min.x) / (plot.view_max.x - plot.view_min.x),
+        1.0 - (v.y - plot.view_min.y) / (plot.view_max.y - plot.view_min.y));
+}
+
+ImVec2 stretch_normalized(const ImVec2 &v, const ImRect &r)
+{
+    return ImLerp(r.Min, r.Max, v);
+}
 
 void PlotTrainHistory(TrainPlot &plot)
 {
@@ -75,69 +111,97 @@ void PlotTrainHistory(TrainPlot &plot)
         //zoom *= (1+g.IO.MouseWheel * 0.01);
     }
 
+    static const ImU32 col_base = GetColorU32(ImGuiCol_PlotLines);
+    static const ImU32 col_hovered = GetColorU32(ImGuiCol_PlotLinesHovered);
+
+
+
+
     RenderFrame(frame_bb.Min, frame_bb.Max, GetColorU32(ImGuiCol_FrameBg), true, style.FrameRounding);
 
+    static const PlotType type = PlotType::DistanceTime;
     static const int px_stride = 3;
+
+        if(hovered)        { 
+        SetTooltip("hello");
+//window->DrawList->AddLine(inner_bb.Min, inner_bb.Max, hovered ? col_hovered : col_base, 10.0);
+
+    }
     for (auto &train : plot.trains)
     {
-    }
+        // At least these types are relevant:
+        // 1. x=distance / y=time (or swapped axes?)
+        // 2. x=distance / y=velocity
+        // 3. time velocity? no.
 
-    if (values_count > 0)
-    {
-        int res_w = ImMin((int)graph_size.x, values_count) - 1;
-        int item_count = values_count - 1;
-
-        // Tooltip on hover
-        int v_hovered = -1;
-        if (hovered)
+        // For each pair of samples
+        for (size_t i = 0; i < train.history.size() - 1; i++)
         {
-            const float t = ImClamp((g.IO.MousePos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x), 0.0f, 0.9999f);
-
-            const int v_idx = (int)(t * item_count);
-            IM_ASSERT(v_idx >= 0 && v_idx < values_count);
-
-            const float v0 = values_getter(data, (v_idx + values_offset) % values_count);
-            const float v1 = values_getter(data, (v_idx + 1 + values_offset) % values_count);
-
-            SetTooltip("%d: %8.4g\n%d: %8.4g", v_idx, v0, v_idx + 1, v1);
-
-            v_hovered = v_idx;
-        }
-
-        const float t_step = 1.0f / (float)res_w;
-
-        float v0 = values_getter(data, (0 + values_offset) % values_count);
-        float t0 = 0.0f;
-        ImVec2 tp0 = ImVec2(t0, 1.0f - ImSaturate((v0 - scale_min) / (scale_max - scale_min))); // Point in the normalized space of our target rectangle
-        //float histogram_zero_line_t = (scale_min * scale_max < 0.0f) ? (-scale_min / (scale_max - scale_min)) : (scale_min < 0.0f ? 0.0f : 1.0f);   // Where does the zero line stands
-
-        const ImU32 col_base = ImGuiCol_PlotLines;
-        const ImU32 col_hovered = ImGuiCol_PlotLinesHovered;
-
-        for (int n = 0; n < res_w; n++)
-        {
-            const float t1 = t0 + t_step;
-            const int v1_idx = (int)(t0 * item_count + 0.5f);
-            IM_ASSERT(v1_idx >= 0 && v1_idx < values_count);
-            const float v1 = values_getter(data, (v1_idx + values_offset + 1) % values_count);
-            const ImVec2 tp1 = ImVec2(t1, 1.0f - ImSaturate((v1 - scale_min) / (scale_max - scale_min)));
-
-            // NB: Draw calls are merged together by the DrawList system. Still, we should render our batch are lower level to save a bit of CPU.
-            ImVec2 pos0 = ImLerp(inner_bb.Min, inner_bb.Max, tp0);
-            ImVec2 pos1 = ImLerp(inner_bb.Min, inner_bb.Max, tp1);
-            window->DrawList->AddLine(pos0, pos1, v_hovered == v1_idx ? col_hovered : col_base);
-
-            /*            else if (plot_type == ImGuiPlotType_Histogram)
-            {
-                if (pos1.x >= pos0.x + 2.0f)
-                    pos1.x -= 1.0f;
-                window->DrawList->AddRectFilled(pos0, pos1, v_hovered == v1_idx ? col_hovered : col_base);
-            }
-*/
-            t0 = t1;
-            tp0 = tp1;
+            auto &prev = train.history[i];
+            auto &next = train.history[i + 1];
+            auto p0 = stretch_normalized(normalize_plot_limits(ImVec2(prev.x, prev.t), plot), inner_bb);
+            auto p1 = stretch_normalized(normalize_plot_limits(ImVec2(next.x, next.t), plot), inner_bb);
+            std::cout << "MYYY drawing " << p0.x << "," << p0.y << "  to " << p1.x << "," << p1.y << "." << std::endl;
+            window->DrawList->AddLine(p0, p1, hovered ? col_hovered : col_base);
         }
     }
+
+    //if (values_count > 0)
+    //{
+    //    int res_w = ImMin((int)graph_size.x, values_count) - 1;
+    //    int item_count = values_count - 1;
+
+    //    // Tooltip on hover
+    //    int v_hovered = -1;
+    //    if (hovered)
+    //    {
+    //        const float t = ImClamp((g.IO.MousePos.x - inner_bb.Min.x) / (inner_bb.Max.x - inner_bb.Min.x), 0.0f, 0.9999f);
+
+    //        const int v_idx = (int)(t * item_count);
+    //        IM_ASSERT(v_idx >= 0 && v_idx < values_count);
+
+    //        const float v0 = values_getter(data, (v_idx + values_offset) % values_count);
+    //        const float v1 = values_getter(data, (v_idx + 1 + values_offset) % values_count);
+
+    //        SetTooltip("%d: %8.4g\n%d: %8.4g", v_idx, v0, v_idx + 1, v1);
+
+    //        v_hovered = v_idx;
+    //    }
+
+    //    const float t_step = 1.0f / (float)res_w;
+
+    //    float v0 = values_getter(data, (0 + values_offset) % values_count);
+    //    float t0 = 0.0f;
+    //    ImVec2 tp0 = ImVec2(t0, 1.0f - ImSaturate((v0 - scale_min) / (scale_max - scale_min))); // Point in the normalized space of our target rectangle
+    //    //float histogram_zero_line_t = (scale_min * scale_max < 0.0f) ? (-scale_min / (scale_max - scale_min)) : (scale_min < 0.0f ? 0.0f : 1.0f);   // Where does the zero line stands
+
+    //    const ImU32 col_base = ImGuiCol_PlotLines;
+    //    const ImU32 col_hovered = ImGuiCol_PlotLinesHovered;
+
+    //    for (int n = 0; n < res_w; n++)
+    //    {
+    //        const float t1 = t0 + t_step;
+    //        const int v1_idx = (int)(t0 * item_count + 0.5f);
+    //        IM_ASSERT(v1_idx >= 0 && v1_idx < values_count);
+    //        const float v1 = values_getter(data, (v1_idx + values_offset + 1) % values_count);
+    //        const ImVec2 tp1 = ImVec2(t1, 1.0f - ImSaturate((v1 - scale_min) / (scale_max - scale_min)));
+
+    //        // NB: Draw calls are merged together by the DrawList system. Still, we should render our batch are lower level to save a bit of CPU.
+    //        ImVec2 pos0 = ImLerp(inner_bb.Min, inner_bb.Max, tp0);
+    //        ImVec2 pos1 = ImLerp(inner_bb.Min, inner_bb.Max, tp1);
+    //        window->DrawList->AddLine(pos0, pos1, v_hovered == v1_idx ? col_hovered : col_base);
+
+    //        /*            else if (plot_type == ImGuiPlotType_Histogram)
+    //        {
+    //            if (pos1.x >= pos0.x + 2.0f)
+    //                pos1.x -= 1.0f;
+    //            window->DrawList->AddRectFilled(pos0, pos1, v_hovered == v1_idx ? col_hovered : col_base);
+    //        }
+    //  */
+    //        t0 = t1;
+    //        tp0 = tp1;
+    //    }
+    //}
 
     // Text overlay
     static char overlay_text[100] = "";
@@ -145,8 +209,8 @@ void PlotTrainHistory(TrainPlot &plot)
     if (overlay_text)
         RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, NULL, NULL, ImVec2(0.5f, 0.0f));
 
-    if (label_size.x > 0.0f)
-        RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label);
+    //if (label_size.x > 0.0f)
+    //    RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label);
 }
 
 int main(int, char **)
@@ -188,7 +252,7 @@ int main(int, char **)
     // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
     ImGuiIO &io = ImGui::GetIO();
     //io.Fonts->AddFontDefault();
-    io.Fonts->AddFontFromFileTTF("imgui/extra_fonts/Roboto-Medium.ttf", 18.0f);
+    io.Fonts->AddFontFromFileTTF("imgui/misc/fonts/Roboto-Medium.ttf", 18.0f);
     //io.Fonts->AddFontFromFileTTF("imgui/extra_fonts/Cousine-Regular.ttf", 18.0f);
     //io.Fonts->AddFontFromFileTTF("imgui/extra_fonts/DroidSans.ttf", 18.0f);
     //io.Fonts->AddFontFromFileTTF("imgui/extra_fonts/ProggyTiny.ttf", 10.0f);
@@ -203,7 +267,7 @@ int main(int, char **)
     bool done = false;
     SDL_Event event;
     double zoom = 1.0;
-    TrainPlot plot;
+    TrainPlot plot = parse_plot(std::cin);
     while (!done)
     {
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
