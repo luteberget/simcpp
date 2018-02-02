@@ -23,6 +23,8 @@ import Data.List (intercalate)
 
 import Data.Char (toLower)
 
+import Debug.Trace
+
 import qualified TrainPlan.Infrastructure as Input
 import qualified TrainPlan.UsagePattern as UP
 import TrainPlan.Infrastructure (routePointRef, isBoundary)
@@ -161,10 +163,15 @@ toISGraphFormat input f = sequence_ ([ f s | s <- fmap toString objs ] ++
     specToString (SignalSpec dir ref) = "signal " ++ (fmap toLower (show dir)) ++ " " ++ (show ref)
     specToString (DetectorSpec a b) = "detector" ++ (maybeWordRepr a) ++ (maybeWordRepr b)
     specToString (SightSpec i d) = "sight " ++ (show i) ++ " " ++ (show d)
-    specToString (SwitchSpec pos) = "switch " ++ (show pos)
+    specToString (SwitchSpec pos) = "switch " ++ (posRepr pos)
     specToString (BoundarySpec) = "boundary"
     specToString (StopSpec) = "stop"
     specToString (TVDSpec) = "tvd"
+
+    posRepr :: Input.SwitchPosition -> String
+    posRepr (Input.SwLeft) = "left"
+    posRepr (Input.SwRight) = "right"
+    posRepr (Input.SwUnknown) = "unknown"
 
     maybeWordRepr :: Maybe Int -> String
     maybeWordRepr Nothing = " -1"
@@ -281,21 +288,22 @@ componentLocation (Input.Signal _ (loc,_) _) = loc
 componentLocation (Input.Detector _ loc _ _) = loc
 componentLocation (Input.Sight loc _ _) = loc
 
-data NodeComponent = NComponent Input.Component | NBoundary String BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
+data NodeComponent = NComponent Input.Component | NBoundary String BeginEnd | NStop BeginEnd | NSwitch String BeginEnd deriving (Show)
 
 nodeLocation :: Double -> NodeComponent -> Double
 nodeLocation _  (NComponent c) = Input.posLength (componentLocation c)
 nodeLocation _  (NBoundary _ Begin) = 0.0
 nodeLocation _  (NStop Begin) = 0.0
-nodeLocation _  (NSwitch Begin) = 0.0
+nodeLocation _  (NSwitch _ Begin) = 0.0
 nodeLocation tl (NBoundary _ End) = tl
 nodeLocation tl (NStop End) = tl
-nodeLocation tl (NSwitch End) = tl
+nodeLocation tl (NSwitch _ End) = tl
 
 nodeName :: NodeComponent -> Maybe String
 nodeName (NComponent (Input.Signal name _ _)) = Just name
 nodeName (NComponent (Input.Detector name _ _ _)) = Just name
 nodeName (NBoundary name _) = Just name
+nodeName (NSwitch name _) = Just name
 nodeName _ = Nothing
 
 type ObjRef = String
@@ -375,7 +383,7 @@ mkInfrastructureObjs is = evalState go 0
     beginNode track 
       | isJust boundary = Just (NBoundary (fromJust boundary) Begin)
       | stop = Just (NStop Begin)
-      | incomingSwitch = Just (NSwitch Begin)
+      | isJust incomingSwitch = Just (NSwitch (fromJust incomingSwitch) Begin)
       | otherwise = Nothing
       where
         -- TODO In Node constructor, take out name of boundary to refer to in RunSpec
@@ -387,15 +395,18 @@ mkInfrastructureObjs is = evalState go 0
         stop = null [() | (Input.Node _ (Input.ConnectionNode _) 
                                         (Input.ConnectionNode to)) <- Input.nodes is
                         , (Input.trackId track) `elem` to]
-        incomingSwitch = not (null [() | (Input.Node _ (Input.ConnectionNode _)
-                                        (Input.ConnectionNode [x])) 
-                                       <- Input.nodes is, x == Input.trackId track])
+        --incomingSwitch = not (null [() | (Input.Node _ (Input.ConnectionNode _)
+        --                                (Input.ConnectionNode [x])) 
+        --                               <- Input.nodes is, x == Input.trackId track])
+        incomingSwitch = listToMaybe [name | (Input.Node name (Input.ConnectionNode _)
+                                             (Input.ConnectionNode [x]))
+                                           <- Input.nodes is, x == Input.trackId track]
 
     endNode :: Input.Track -> Maybe NodeComponent
     endNode track
       | isJust boundary = Just (NBoundary (fromJust boundary) End)
       | stop = Just (NStop End)
-      | outgoingSwitch = Just (NSwitch End)
+      | isJust outgoingSwitch = Just (NSwitch (fromJust outgoingSwitch) End)
       | otherwise = Nothing
       where
         boundary = listToMaybe [name | (Input.Node name (Input.ConnectionNode [x])
@@ -404,9 +415,12 @@ mkInfrastructureObjs is = evalState go 0
         stop = null [() | (Input.Node _ (Input.ConnectionNode from)
                                         (Input.ConnectionNode _)) <- Input.nodes is
                         , (Input.trackId track) `elem` from]
-        outgoingSwitch = not (null [() | (Input.Node _ (Input.ConnectionNode [x])
-                                        (Input.ConnectionNode _)) 
-                                       <- Input.nodes is, x == Input.trackId track])
+        --outgoingSwitch = not (null [() | (Input.Node _ (Input.ConnectionNode [x])
+        --                                (Input.ConnectionNode _)) 
+        --                               <- Input.nodes is, x == Input.trackId track])
+        outgoingSwitch = listToMaybe [ name | (Input.Node name (Input.ConnectionNode [x])
+                                              (Input.ConnectionNode _))
+                                            <- Input.nodes is, x == Input.trackId track]
 
 -- data NodeComponent = NComponent Input.Component | NBoundary BeginEnd | NStop BeginEnd | NSwitch BeginEnd deriving (Show)
     nodeToObj :: NodeComponent -> [(ObjRef,Double)] -> (ISObjTypeSpec ObjRef, [Link ObjRef])
@@ -416,7 +430,7 @@ mkInfrastructureObjs is = evalState go 0
     -- TVDs should not appear here (they have no location on the track graph)
     nodeToObj (NBoundary name _) links = (BoundarySpec, links)
     nodeToObj (NStop _) links = (StopSpec, links)
-    nodeToObj (NSwitch _) links = (SwitchSpec SwLeft, links) -- TODO configurable default state
+    nodeToObj (NSwitch name _) links = (SwitchSpec SwLeft, links) -- TODO configurable default state
     -- inconsistent input_
     nodeToObj c s = error ("Could not convert node to object: " ++ (show c) ++ ", " ++ (show s))
 
