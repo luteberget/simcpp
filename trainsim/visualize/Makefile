@@ -15,7 +15,7 @@
 #CXX = clang++
 
 EXE = simvis
-OBJS = main.o imgui_impl_sdl_gl3.o ../traindynamics.o
+OBJS = main.o imgui_impl_sdl_gl3.o ../traindynamics.o plotparser.o trainplot.o ../parser.o
 OBJS += imgui/imgui.o imgui/imgui_demo.o imgui/imgui_draw.o
 OBJS += imgui/examples/libs/gl3w/GL/gl3w.o
 

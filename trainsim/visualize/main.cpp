@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <iostream>
+#include <fstream>
 using std::vector;
 
 #define IMGUI_DEFINE_MATH_OPERATORS
@@ -19,109 +20,45 @@ using std::vector;
 #include "../history.h"
 #include "../inputs.h"
 #include "../traindynamics.h"
+#include "trainplot.h"
+#include "plotparser.h"
 
-float values_getter(const vector<float> &data, size_t i)
+#include <signal.h>
+Uint32 reload_event_no;
+SDL_Event reload_event;
+void signal_callback_handler(int signum)
 {
-    return data[i];
+    //printf("Caught signal %d\n", signum);
+    SDL_PushEvent(&reload_event);
+    // Cleanup and close up stuff here
+    // Terminate program
 }
 
-struct TrainPlot
+void trainPlotLine(ImGuiWindow *window, const ImRect &view, const ImRect &inner_bb,
+                   bool hovered,
+                   const ImVec2 &p0, const ImVec2 &p1, double thickness = 4.0)
 {
-enum class PlotType
-{
-    DistanceTime,
-    DistanceVelocity
-};
-    struct TrainHistorySnapshot
-    {
-        double t, x, v;
-        TrainAction action;
-    };
-    struct Train
-    {
-        string name;
-        LinearTrainParams params;
-        vector<TrainHistorySnapshot> history;
-    };
-
-    PlotType type = PlotType::DistanceTime;
-    
-    ImRect dtview;
-    ImRect dvview;
-    vector<Train> trains;
-
-    template <class T> struct History {
-      //string name;
-      vector<pair<double, T>> history;
-    };
-
-    unordered_map<string, History<bool>> signals; // TODO multiple signal aspects?
-    unordered_map<string, History<bool>> tvds;
-    unordered_map<string, History<bool>> routes;
-    unordered_map<string, History<SwitchState>> switches;
-};
-
-ImRect add_view_margin(double c, ImRect r) {
-  auto w = r.Max.x - r.Min.x;
-  auto h = r.Max.y - r.Min.y;
-  return ImRect(r.Min.x - c*w, r.Min.y - c*h,
-		  r.Max.x + c*w, r.Max.y + c*h);
-}
-
-TrainPlot parse_plot(std::istream &in)
-{
-    TrainPlot p;
-    p.dtview = add_view_margin(0.05, ImRect(-50,0,212.5,32.5));
-    p.dvview = add_view_margin(0.05, ImRect(-50,0,212.5,10.0));
-
-    TrainPlot::Train t;
-    t.name = "train1";
-    t.params = {1.0, 0.9, 99.0, 50.0};
-
-    double time = 0;
-    double dt;
-    //in >> dt;
-    // while(!in.fail()) {
-    //         // Found a timestamp
-
-    //         t += dt;
-    //         string >> 
-    // }
-    
-
-    t.history.push_back({0.0, 0.0, 0.0, TrainAction::Accel});
-    t.history.push_back({10.0, 50.0, 10.0, TrainAction::Coast});
-    t.history.push_back({20.0, 150.0, 10.0, TrainAction::Brake});
-    t.history.push_back({32.5, 212.5, 0.0, TrainAction::Coast});
-
-    p.trains.push_back(t);
-
-    return p;
-}
-
-
-ImVec2 normalize_view_limits(const ImVec2 &v, const ImRect& view)
-{
-    return ImVec2(
-        (v.x - view.Min.x) / (view.Max.x - view.Min.x),
-        1.0 - (v.y - view.Min.y) / (view.Max.y - view.Min.y));
-}
-
-ImVec2 stretch_normalized(const ImVec2 &v, const ImRect &r)
-{
-    return ImLerp(r.Min, r.Max, v);
-}
-
-
-void trainPlotLine(ImGuiWindow* window, const ImRect& view, const ImRect& inner_bb,
-		bool hovered,
-		const ImVec2& p0, const ImVec2& p1) {
     using namespace ImGui;
+
     static const ImU32 col_base = GetColorU32(ImGuiCol_PlotLines);
     static const ImU32 col_hovered = GetColorU32(ImGuiCol_PlotLinesHovered);
-                auto xy0 = stretch_normalized(normalize_view_limits(ImVec2(p0.x, p0.y), view), inner_bb);
-                auto xy1 = stretch_normalized(normalize_view_limits(ImVec2(p1.x, p1.y), view), inner_bb);
-                window->DrawList->AddLine(xy0, xy1, hovered ? col_hovered : col_base, 4.0);
+
+    auto xy0 = stretch_normalized(normalize_view_limits(p0, view), inner_bb);
+    auto xy1 = stretch_normalized(normalize_view_limits(p1, view), inner_bb);
+    window->DrawList->AddLine(xy0, xy1, hovered ? col_hovered : col_base, thickness);
+}
+
+//ImVec2 px2view(ImVec2 px, ImRect bb, ImRect view) {
+//(bb-bb.Min)
+//}
+
+ImRect zoom_plot(TrainPlot &plot, double factor, ImVec2 center, ImRect view)
+{
+    auto view_min = view.Min;
+    auto view_size = view.GetSize();
+    view.Expand(view.GetSize() * (1 - factor));
+    view.Translate(((center - view.Min) - (center - view_min) / view_size * view.GetSize()));
+    return view;
 }
 
 void PlotTrainHistory(TrainPlot &plot)
@@ -138,7 +75,7 @@ void PlotTrainHistory(TrainPlot &plot)
 
     ImVec2 canvas_size;
     canvas_size.x = CalcItemWidth();
-    canvas_size.y = GetWindowSize().y - GetCursorPos().y;
+    canvas_size.y = GetWindowSize().y - GetCursorPos().y - 2 * style.FramePadding.y;
 
     // TODO create room for axes
     // TODO can/should we cache the display list for axis lines?
@@ -154,18 +91,24 @@ void PlotTrainHistory(TrainPlot &plot)
 
     if (hovered && g.IO.MouseWheel != 0.0f)
     {
-        // TODO ZOOM
-        //zoom *= (1+g.IO.MouseWheel * 0.01);
+        auto center = stretch_normalized(normalize_view_limits(g.IO.MousePos, inner_bb), plot.dtview);
+        //std::cout << "zooming on " << center.x << "," << center.y << std::endl;
+        plot.dtview = zoom_plot(plot, 1 + g.IO.MouseWheel * 0.1, center, plot.dtview);
     }
-
 
     RenderFrame(frame_bb.Min, frame_bb.Max, GetColorU32(ImGuiCol_FrameBg), true, style.FrameRounding);
 
     static const int px_stride = 3;
-
+    if (IsMouseDragging(0))
+    {
+        //static char x[100];
+        //sprintf(x, "dragged %g %g\n", g.IO.MouseDelta.x, g.IO.MouseDelta.y);
+        //SetTooltip(x);
+        plot.dtview.Translate(ImVec2(-1.0, 1.0) * g.IO.MouseDelta * plot.dtview.GetSize() / inner_bb.GetSize());
+    }
     if (hovered)
     {
-        SetTooltip("hello");
+        //SetTooltip("hovered");
         //window->DrawList->AddLine(inner_bb.Min, inner_bb.Max, hovered ? col_hovered : col_base, 10.0);
     }
     for (auto &train : plot.trains)
@@ -174,32 +117,50 @@ void PlotTrainHistory(TrainPlot &plot)
         // 1. x=distance / y=time (or swapped axes?)
         // 2. x=distance / y=velocity
 
+        double dbar = (plot.dtview.Max.y - plot.dtview.Min.y) / 50;
+
         for (size_t i = 0; i < train.history.size() - 1; i++)
         {
             auto &prev = train.history[i];
             auto &next = train.history[i + 1];
             static const size_t num_segments = 20;
+            vector<ImVec2> frontOfTrain;
+            auto last_bar_t = -std::numeric_limits<double>::infinity();
             for (size_t i = 0; i < num_segments; i++)
             {
-                double dt0 = (next.t - prev.t)*((double)i/(double)num_segments);
-                double dt1 = (next.t - prev.t)*((double)(i+1)/(double)num_segments);
-                auto t0 = trainUpdate(train.params, prev.v, {prev.action, dt0} );
-                auto t1 = trainUpdate(train.params, prev.v, {prev.action, dt1} );
+                double dt0 = (next.t - prev.t) * ((double)i / (double)num_segments);
+                double dt1 = (next.t - prev.t) * ((double)(i + 1) / (double)num_segments);
+                auto t0 = trainUpdate(train.params, prev.v, {next.action, dt0});
+                auto t1 = trainUpdate(train.params, prev.v, {next.action, dt1});
 
+                if (plot.type == TrainPlot::PlotType::DistanceTime)
+                {
+                    auto front0 = ImVec2(prev.x + t0.dist, prev.t + dt0);
+                    auto front1 = ImVec2(prev.x + t1.dist, prev.t + dt1);
+                    auto l = ImVec2(train.params.length, 0.0);
+                    trainPlotLine(window, plot.dtview, inner_bb, hovered, front0, front1);
+                    trainPlotLine(window, plot.dtview, inner_bb, hovered, front0 - l, front1 - l);
 
-		if(plot.type == TrainPlot::PlotType::DistanceTime) {
-		trainPlotLine(window, plot.dtview, inner_bb, hovered,
-				ImVec2(prev.x + t0.dist, prev.t + dt0),
-				ImVec2(prev.x + t1.dist, prev.t + dt1));
-		trainPlotLine(window, plot.dtview, inner_bb,hovered,
-				ImVec2(prev.x - train.params.length + t0.dist, prev.t + dt0),
-				ImVec2(prev.x - train.params.length + t1.dist, prev.t + dt1));
-		} else if (plot.type == TrainPlot::PlotType::DistanceVelocity) {
-		  trainPlotLine(window, plot.dvview, inner_bb, hovered,
-		  		ImVec2(prev.x + t0.dist, t0.velocity),
-		  		ImVec2(prev.x + t1.dist, t1.velocity));
-		}
+                    //if(last_bar_t + dbar < front0.y) {
+                    trainPlotLine(window, plot.dtview, inner_bb, false, front0, front0 - l, 1.0);
+                    last_bar_t = front0.y;
+                    //}
+
+                    /*if(i == 0) { frontOfTrain.push_back(front0); }
+                    frontOfTrain.push_back(front1);*/
+                }
+                else if (plot.type == TrainPlot::PlotType::DistanceVelocity)
+                {
+                    auto v0 = ImVec2(prev.x + t0.dist, t0.velocity);
+                    auto v1 = ImVec2(prev.x + t1.dist, t1.velocity);
+                    trainPlotLine(window, plot.dvview, inner_bb, hovered, v0, v1);
+                }
             }
+            /*static const auto fill = GetColorU32(ImGuiCol_PlotLinesHovered);
+            size_t n = frontOfTrain.size();
+            for(size_t i = 0; i < n; i++) frontOfTrain.push_back(frontOfTrain[i] - ImVec2(train.params.length,0.0));
+            for(size_t i = 0; i < frontOfTrain.size(); i++) frontOfTrain[i] = stretch_normalized(normalize_view_limits(frontOfTrain[i], plot.dtview), inner_bb);
+            window->DrawList->AddConvexPolyFilled(frontOfTrain.data(), frontOfTrain.size(), fill);*/
         }
     }
 
@@ -261,17 +222,41 @@ void PlotTrainHistory(TrainPlot &plot)
     //}
 
     // Text overlay
-    static char overlay_text[100] = "";
+    /*static char overlay_text[100] = "";
     sprintf(overlay_text, "At zoom %g.", 1.0);
     if (overlay_text)
         RenderTextClipped(ImVec2(frame_bb.Min.x, frame_bb.Min.y + style.FramePadding.y), frame_bb.Max, overlay_text, NULL, NULL, ImVec2(0.5f, 0.0f));
-
+*/
     //if (label_size.x > 0.0f)
     //    RenderText(ImVec2(frame_bb.Max.x + style.ItemInnerSpacing.x, inner_bb.Min.y), label);
 }
 
-int main(int, char **)
+TrainPlot plot;
+const char* filename;
+void reload_file() {
+    printf("Reloading file!\n");
+    std::ifstream inFile = std::ifstream(filename);
+    try
+    {
+        TrainPlot p = parse_plot(inFile);
+        plot = p;
+    }
+    catch (string s)
+    {
+        std::cerr << "Parse error: " << s << std::endl;
+    }
+}
+
+int main(int argc, char ** argv)
 {
+    filename = argv[1];
+    reload_file();
+
+    signal(SIGUSR1, signal_callback_handler);
+    reload_event_no = SDL_RegisterEvents(1);
+    SDL_zero(reload_event);
+    reload_event.type = reload_event_no;
+
     // Setup SDL
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
     {
@@ -324,7 +309,9 @@ int main(int, char **)
     bool done = false;
     SDL_Event event;
     double zoom = 1.0;
-    TrainPlot plot = parse_plot(std::cin);
+
+
+
     while (!done)
     {
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -335,17 +322,19 @@ int main(int, char **)
         ImGui_ImplSdlGL3_ProcessEvent(&event);
         if (event.type == SDL_QUIT)
             done = true;
+        if (event.type == reload_event_no) reload_file();
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSdlGL3_ProcessEvent(&event);
             if (event.type == SDL_QUIT)
                 done = true;
+            if (event.type == reload_event_no) reload_file();
         }
         ImGui_ImplSdlGL3_NewFrame(window);
         float width = ImGui::GetIO().DisplaySize.x;
         float height = ImGui::GetIO().DisplaySize.y;
 
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));
 
         ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
         ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
@@ -358,22 +347,20 @@ int main(int, char **)
         static float arr[] = {0.6f, 0.1f, 1.0f, 0.5f, 0.92f, 0.1f, 0.2f};
         ImGui::PlotLines("BLÆ##Frame Times", arr, IM_ARRAYSIZE(arr));
 
-	int ptype = plot.type == TrainPlot::PlotType::DistanceTime ? 0 : 1;
-	ImGui::Combo("Plot type", &ptype, "Distance/time\0Distance/velocity\0\0");
-	plot.type = ptype == 0 ? TrainPlot::PlotType::DistanceTime : 
-		                 TrainPlot::PlotType::DistanceVelocity;
+        int ptype = plot.type == TrainPlot::PlotType::DistanceTime ? 0 : 1;
+        ImGui::Combo("Plot type", &ptype, "Distance/time\0Distance/velocity\0\0");
+        plot.type = ptype == 0 ? TrainPlot::PlotType::DistanceTime : TrainPlot::PlotType::DistanceVelocity;
         ImGui::PushItemWidth(-1);
-
 
         PlotTrainHistory(plot);
 
-        ImGui::PlotLines("##Frame Times", arr, IM_ARRAYSIZE(arr));
+        //ImGui::PlotLines("##Frame Times", arr, IM_ARRAYSIZE(arr));
 
         ImGui::End();
         ImGui::PopStyleVar(); // Tighten spacing
 
         // 3. Show the ImGui demo window. Most of the sample code is in ImGui::ShowDemoWindow(). Read its code to learn more about Dear ImGui!
-        ImGui::ShowDemoWindow(&show_demo_window);
+        //ImGui::ShowDemoWindow(&show_demo_window);
 
         // Rendering
         glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);

@@ -22,7 +22,7 @@ private:
   void set_state_report(SwitchState state)
   {
     out->write(HistoryItem::mkMovablePosition(state, &this->name));
-    this->set_state(SwitchState::Unknown);
+    this->set_state(state);
   }
 
   void set_position(double p)
