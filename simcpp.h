@@ -8,8 +8,7 @@
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
-    if (!event->is_triggered()) {                                              \
-      event->add_handler(shared_from_this());                                  \
+    if ((event)->add_handler(shared_from_this())) {                            \
       PT_YIELD();                                                              \
     }                                                                          \
   } while (0)
@@ -45,7 +44,7 @@ public:
   shared_ptr<Process> run_process(shared_ptr<Process> p);
 
   template <class T, class... Args>
-  shared_ptr<Process> start_process(Args &&... args) {
+  shared_ptr<Process> start_process(Args &&...args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
@@ -91,7 +90,15 @@ public:
   Event(shared_ptr<Simulation> sim)
       : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
 
-  void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
+  bool add_handler(shared_ptr<Process> p) {
+    if (is_processed()) {
+      return false;
+    }
+
+    listeners->push_back(p);
+    return true;
+  }
+
   bool is_processed() { return this->listeners == nullptr; }
   int get_value() { return this->value; }
   void fire();
@@ -132,7 +139,7 @@ void Process::resume() {
 }
 
 shared_ptr<Event> Simulation::schedule(shared_ptr<Event> e, double delay) {
-  this->events.emplace(QueuedEvent(this->now + delay, id_counter++, e));
+  this->events.emplace(this->now + delay, id_counter++, e);
   return e;
 }
 
@@ -165,7 +172,9 @@ void Event::fire() {
 }
 
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
-  p->resume();
+  auto ev = std::make_shared<Event>(shared_from_this());
+  ev->add_handler(p);
+  this->schedule(ev);
   return p;
 }
 
