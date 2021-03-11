@@ -132,7 +132,7 @@ void Process::resume() {
 }
 
 shared_ptr<Event> Simulation::schedule(shared_ptr<Event> e, double delay) {
-  this->events.emplace(QueuedEvent(this->now + delay, id_counter++, e));
+  this->events.emplace(this->now + delay, id_counter++, e);
   return e;
 }
 
