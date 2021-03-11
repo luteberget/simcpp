@@ -8,8 +8,10 @@
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
-    event->add_handler(shared_from_this());                                    \
-    PT_YIELD();                                                                \
+    if(!event->is_triggered()) {                                               \
+      event->add_handler(shared_from_this());                                  \
+      PT_YIELD();                                                              \
+    }                                                                          \
   } while (0)
 
 using std::priority_queue;
@@ -156,6 +158,7 @@ void Event::fire() {
   for (auto proc : *listeners) {
     proc->resume();
   }
+  this->value = 0;
 }
 
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
