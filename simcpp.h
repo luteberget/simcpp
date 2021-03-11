@@ -155,11 +155,13 @@ bool Simulation::step() {
 
 void Event::fire() {
   auto listeners = std::move(this->listeners);
+
   this->listeners = nullptr;
+  this->value = 0;
+
   for (auto proc : *listeners) {
     proc->resume();
   }
-  this->value = 0;
 }
 
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
