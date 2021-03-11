@@ -172,7 +172,9 @@ void Event::fire() {
 }
 
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
-  p->resume();
+  auto ev = std::make_shared<Event>(shared_from_this());
+  ev->add_handler(p);
+  this->schedule(ev);
   return p;
 }
 
