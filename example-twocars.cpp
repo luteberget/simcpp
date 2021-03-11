@@ -1,5 +1,8 @@
 #include "simcpp.h"
+
+#include <cstdio>
 #include <string>
+
 using std::shared_ptr;
 using std::string;
 

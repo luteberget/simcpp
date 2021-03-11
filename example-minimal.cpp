@@ -1,4 +1,7 @@
 #include "simcpp.h"
+
+#include <cstdio>
+
 using std::shared_ptr;
 
 class Car : public Process {
