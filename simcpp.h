@@ -8,8 +8,7 @@
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
-    if (!event->is_triggered()) {                                              \
-      event->add_handler(shared_from_this());                                  \
+    if ((event)->add_handler(shared_from_this())) {                            \
       PT_YIELD();                                                              \
     }                                                                          \
   } while (0)
@@ -91,7 +90,15 @@ public:
   Event(shared_ptr<Simulation> sim)
       : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
 
-  void add_handler(shared_ptr<Process> p) { listeners->push_back(p); }
+  bool add_handler(shared_ptr<Process> p) {
+    if (is_processed()) {
+      return false;
+    }
+
+    listeners->push_back(p);
+    return true;
+  }
+
   bool is_processed() { return this->listeners == nullptr; }
   int get_value() { return this->value; }
   void fire();
