@@ -45,7 +45,7 @@ public:
   shared_ptr<Process> run_process(shared_ptr<Process> p);
 
   template <class T, class... Args>
-  shared_ptr<Process> start_process(Args &&... args) {
+  shared_ptr<Process> start_process(Args &&...args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
