@@ -4,11 +4,13 @@
 process Car(string name) {
   double target_time = sim->get_now() + 100.0;
   bool finished = false;
-} do {
-  while(!finished) {
+}
+do {
+  while (!finished) {
     await(sim->timeout(5.0));
     printf("Car %s running at %g.\n", name.c_str(), sim->get_now());
-    if(sim->get_now() >= target_time) finished = true;
+    if (sim->get_now() >= target_time)
+      finished = true;
   }
 };
 

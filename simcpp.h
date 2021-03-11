@@ -8,7 +8,7 @@
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
-    if(!event->is_triggered()) {                                               \
+    if (!event->is_triggered()) {                                              \
       event->add_handler(shared_from_this());                                  \
       PT_YIELD();                                                              \
     }                                                                          \
@@ -108,7 +108,7 @@ public:
   Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
   void resume();
   void abort();
-  virtual void Aborted() {};
+  virtual void Aborted(){};
 };
 
 void Process::abort() {
@@ -118,7 +118,8 @@ void Process::abort() {
 
 void Process::resume() {
   // Is the process already finished?
-  if(this->is_triggered()) return;
+  if (this->is_triggered())
+    return;
 
   bool run = Run();
 
@@ -145,7 +146,7 @@ bool Simulation::step() {
   // printf("Stepping from \t%g to \t%g\n",this->now,queuedEvent.time);
   this->now = queuedEvent.time;
   auto event = queuedEvent.event;
-  // TODO Does this keep the shared pointer in scope, making the 
+  // TODO Does this keep the shared pointer in scope, making the
   // automatic memory management useless?
   // TODO Is this whole approach limited by the stack size?
   event->fire();
@@ -174,39 +175,44 @@ shared_ptr<Event> Simulation::timeout(double delay) {
 
 class AnyOf : public Process {
 public:
-  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim) {
-    for(auto& e : v) e->add_handler(shared_from_this());
+  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v)
+      : Process(sim) {
+    for (auto &e : v)
+      e->add_handler(shared_from_this());
   }
   virtual bool Run() override {
-      PT_BEGIN();
-      PT_YIELD();
-      // Any time we get called back, we are finished.
-      PT_END();
+    PT_BEGIN();
+    PT_YIELD();
+    // Any time we get called back, we are finished.
+    PT_END();
   }
-};;
+};
+;
 
 // ALLOF event
 class AllOf : public Process {
   vector<shared_ptr<Event>> v;
   size_t i = 0;
-  public:
-    AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v) : Process(sim), v(v) {}
-    virtual bool Run() override {
-      PT_BEGIN();
-      while(this->i < this->v.size()) {
-        if(!this->v[i]->is_triggered()) {
-          PROC_WAIT_FOR(this->v[i]);
-          i++;
-        }
+
+public:
+  AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v)
+      : Process(sim), v(v) {}
+  virtual bool Run() override {
+    PT_BEGIN();
+    while (this->i < this->v.size()) {
+      if (!this->v[i]->is_triggered()) {
+        PROC_WAIT_FOR(this->v[i]);
+        i++;
       }
-      PT_END();
     }
+    PT_END();
+  }
 };
 
-  void Simulation::advance_to(shared_ptr<Process> p) {
-    while (!p->is_triggered() && this->has_next()) { 
-      this->step();
-    }
+void Simulation::advance_to(shared_ptr<Process> p) {
+  while (!p->is_triggered() && this->has_next()) {
+    this->step();
   }
+}
 
 #endif
