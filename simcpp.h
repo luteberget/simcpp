@@ -32,9 +32,9 @@ public:
         : time(t), id(id), event(e) {}
 
     bool operator<(const QueuedEvent &b) const {
-      if (this->time != b.time)
-        return this->time > b.time;
-      return this->id > b.id;
+      if (time != b.time)
+        return time > b.time;
+      return id > b.id;
     }
   };
 
@@ -54,28 +54,28 @@ private:
   double now = 0.0;
   priority_queue<QueuedEvent> events;
   size_t id_counter = 0;
-  bool has_next() { return !this->events.empty(); }
-  double peek_next_time() { return this->events.top().time; }
+  bool has_next() { return !events.empty(); }
+  double peek_next_time() { return events.top().time; }
 
 public:
   shared_ptr<Event> schedule(shared_ptr<Event> e, double delay = 0.0);
   bool step();
 
   void advance_by(double t) {
-    double target = this->now + t;
-    while (this->has_next() && this->peek_next_time() <= target) {
-      this->step();
+    double target = now + t;
+    while (has_next() && peek_next_time() <= target) {
+      step();
     }
-    this->now = target;
+    now = target;
   }
 
   void advance_to(shared_ptr<Process> p);
 
   void run() {
-    while (this->step())
+    while (step())
       ;
   }
-  double get_now() { return this->now; }
+  double get_now() { return now; }
 };
 
 class Event {
@@ -99,13 +99,13 @@ public:
     return true;
   }
 
-  bool is_processed() { return this->listeners == nullptr; }
-  int get_value() { return this->value; }
+  bool is_processed() { return listeners == nullptr; }
+  int get_value() { return value; }
   void fire();
 
-  bool is_triggered() { return this->value != -1; }
-  bool is_success() { return this->value == 1; }
-  bool is_failed() { return this->value == 2; }
+  bool is_triggered() { return value != -1; }
+  bool is_success() { return value == 1; }
+  bool is_failed() { return value == 2; }
 };
 
 class Process : public Event,
@@ -119,13 +119,13 @@ public:
 };
 
 void Process::abort() {
-  this->value = 2; //?
+  value = 2; //?
   Aborted();
 }
 
 void Process::resume() {
   // Is the process already finished?
-  if (this->is_triggered())
+  if (is_triggered())
     return;
 
   bool run = Run();
@@ -133,25 +133,24 @@ void Process::resume() {
   // Did the process finish now?
   if (!run) {
     // Process finished
-    this->value = 1;
-    this->sim->schedule(shared_from_this());
+    value = 1;
+    sim->schedule(shared_from_this());
   }
 }
 
-shared_ptr<Event> Simulation::schedule(shared_ptr<Event> e, double delay) {
-  this->events.emplace(this->now + delay, id_counter++, e);
+shared_ptr<Event> Simulation::schedule(shared_ptr<Event> e, double delay /* = 0 */) {
+  events.emplace(now + delay, id_counter++, e);
   return e;
 }
 
 bool Simulation::step() {
-  if (this->events.empty()) {
+  if (events.empty()) {
     return false;
   }
 
-  auto queuedEvent = this->events.top();
-  this->events.pop();
-  // printf("Stepping from \t%g to \t%g\n",this->now,queuedEvent.time);
-  this->now = queuedEvent.time;
+  auto queuedEvent = events.top();
+  events.pop();
+  now = queuedEvent.time;
   auto event = queuedEvent.event;
   // TODO Does this keep the shared pointer in scope, making the
   // automatic memory management useless?
@@ -164,7 +163,7 @@ void Event::fire() {
   auto listeners = std::move(this->listeners);
 
   this->listeners = nullptr;
-  this->value = 0;
+  value = 0;
 
   for (auto proc : *listeners) {
     proc->resume();
@@ -174,13 +173,13 @@ void Event::fire() {
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
   auto ev = std::make_shared<Event>(shared_from_this());
   ev->add_handler(p);
-  this->schedule(ev);
+  schedule(ev);
   return p;
 }
 
 shared_ptr<Event> Simulation::timeout(double delay) {
   auto ev = std::make_shared<Event>(shared_from_this());
-  this->schedule(ev, delay);
+  schedule(ev, delay);
   return ev;
 }
 
@@ -210,9 +209,9 @@ public:
       : Process(sim), v(v) {}
   virtual bool Run() override {
     PT_BEGIN();
-    while (this->i < this->v.size()) {
-      if (!this->v[i]->is_triggered()) {
-        PROC_WAIT_FOR(this->v[i]);
+    while (i < v.size()) {
+      if (!v[i]->is_triggered()) {
+        PROC_WAIT_FOR(v[i]);
         i++;
       }
     }
@@ -221,8 +220,8 @@ public:
 };
 
 void Simulation::advance_to(shared_ptr<Process> p) {
-  while (!p->is_triggered() && this->has_next()) {
-    this->step();
+  while (!p->is_triggered() && has_next()) {
+    step();
   }
 }
 
