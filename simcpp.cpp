@@ -98,9 +98,9 @@ void Simulation::advance_by(double duration) {
   now = target;
 }
 
-void Simulation::advance_to(shared_ptr<Process> process) {
-  // TODO how to handle process abort?
-  while (process->is_pending() && has_next()) {
+void Simulation::advance_to(shared_ptr<Event> event) {
+  // TODO how to handle event abort?
+  while (event->is_pending() && has_next()) {
     step();
   }
 }

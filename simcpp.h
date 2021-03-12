@@ -58,7 +58,7 @@ public:
 
   void advance_by(double duration);
 
-  void advance_to(shared_ptr<Process> process);
+  void advance_to(shared_ptr<Event> event);
 
   void run();
 
