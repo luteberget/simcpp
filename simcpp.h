@@ -1,11 +1,11 @@
-#ifndef __SIMCPP_H
-#define __SIMCPP_H
-
-#include "protothread.h"
+#ifndef SIMCPP_H_
+#define SIMCPP_H_
 
 #include <memory>
 #include <queue>
 #include <vector>
+
+#include "protothread.h"
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
@@ -80,7 +80,7 @@ class Event : public std::enable_shared_from_this<Event> {
 public:
   enum class State { Pending, Triggered, Aborted };
 
-  Event(SimulationPtr sim);
+  explicit Event(SimulationPtr sim);
 
   bool add_handler(ProcessPtr process);
 
@@ -112,7 +112,7 @@ private:
 
 class Process : public Event, public Protothread {
 public:
-  Process(SimulationPtr sim);
+  explicit Process(SimulationPtr sim);
 
   void resume();
 
@@ -123,7 +123,7 @@ class Condition : public Process {
 public:
   Condition(SimulationPtr sim, int n);
 
-  virtual bool Run() override;
+  bool Run() override;
 
 private:
   int n;
@@ -131,4 +131,4 @@ private:
 
 } // namespace simcpp
 
-#endif
+#endif // SIMCPP_H_

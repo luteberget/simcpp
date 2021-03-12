@@ -1,37 +1,39 @@
-#include "simcpp.h"
-
 #include <cstdio>
 #include <string>
+
+#include "simcpp.h"
 
 using std::shared_ptr;
 using std::string;
 
 class Car : public simcpp::Process {
-private:
-  bool finished = false;
-  double target_time;
-  string name;
-
 public:
-  Car(simcpp::SimulationPtr sim, string name)
+  explicit Car(simcpp::SimulationPtr sim, string name)
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
 
-  virtual bool Run() override {
+  bool Run() override {
     PT_BEGIN();
     while (!this->finished) {
       PROC_WAIT_FOR(sim->timeout(5.0));
       printf("Car %s running at %g.\n", this->name.c_str(), sim->get_now());
-      if (sim->get_now() >= this->target_time)
+      if (sim->get_now() >= this->target_time) {
         this->finished = true;
+      }
     }
     PT_END();
   }
+
+private:
+  bool finished = false;
+  double target_time;
+  string name;
 };
 
 class TwoCars : public simcpp::Process {
 public:
-  TwoCars(simcpp::SimulationPtr sim) : Process(sim) {}
-  virtual bool Run() override {
+  explicit TwoCars(simcpp::SimulationPtr sim) : Process(sim) {}
+
+  bool Run() override {
     PT_BEGIN();
 
     printf("Starting car C1.\n");

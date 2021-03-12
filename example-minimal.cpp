@@ -1,14 +1,14 @@
-#include "simcpp.h"
-
 #include <cstdio>
+
+#include "simcpp.h"
 
 using std::shared_ptr;
 
 class Car : public simcpp::Process {
 public:
-  Car(simcpp::SimulationPtr sim) : Process(sim) {}
+  explicit Car(simcpp::SimulationPtr sim) : Process(sim) {}
 
-  virtual bool Run() override {
+  bool Run() override {
     PT_BEGIN();
 
     printf("Car running at %g.\n", sim->get_now());

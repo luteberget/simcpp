@@ -1,5 +1,7 @@
 #include "simcpp.h"
 
+#include <utility>
+
 namespace simcpp {
 
 /* Simulation */
@@ -171,7 +173,7 @@ bool Event::is_aborted() { return state == State::Aborted; }
 
 Event::State Event::get_state() { return state; }
 
-void Event::Aborted(){};
+void Event::Aborted() {}
 
 /* Process */
 
