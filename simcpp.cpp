@@ -1,19 +1,5 @@
 #include "simcpp.h"
 
-/* Simulation::QueuedEvent */
-
-Simulation::QueuedEvent::QueuedEvent(double time, size_t id,
-                                     shared_ptr<Event> event)
-    : time(time), id(id), event(event) {}
-
-bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
-  if (time != other.time) {
-    return time > other.time;
-  }
-
-  return id > other.id;
-}
-
 /* Simulation */
 
 shared_ptr<Simulation> Simulation::create() {
@@ -115,6 +101,20 @@ double Simulation::get_now() { return now; }
 bool Simulation::has_next() { return !queued_events.empty(); }
 
 double Simulation::peek_next_time() { return queued_events.top().time; }
+
+/* Simulation::QueuedEvent */
+
+Simulation::QueuedEvent::QueuedEvent(double time, size_t id,
+                                     shared_ptr<Event> event)
+    : time(time), id(id), event(event) {}
+
+bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
+  if (time != other.time) {
+    return time > other.time;
+  }
+
+  return id > other.id;
+}
 
 /* Event */
 

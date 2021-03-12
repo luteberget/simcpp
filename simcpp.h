@@ -24,17 +24,6 @@ class Process;
 
 class Simulation : public std::enable_shared_from_this<Simulation> {
 public:
-  class QueuedEvent {
-  public:
-    double time;
-    size_t id;
-    shared_ptr<Event> event;
-
-    QueuedEvent(double time, size_t id, shared_ptr<Event> event);
-
-    bool operator<(const QueuedEvent &other) const;
-  };
-
   static shared_ptr<Simulation> create();
 
   template <class T, class... Args>
@@ -65,6 +54,17 @@ public:
   double get_now();
 
 private:
+  class QueuedEvent {
+  public:
+    double time;
+    size_t id;
+    shared_ptr<Event> event;
+
+    QueuedEvent(double time, size_t id, shared_ptr<Event> event);
+
+    bool operator<(const QueuedEvent &other) const;
+  };
+
   double now = 0.0;
   size_t next_id = 0;
   priority_queue<QueuedEvent> queued_events;
