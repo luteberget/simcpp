@@ -4,29 +4,26 @@ namespace simcpp {
 
 /* Simulation */
 
-shared_ptr<Simulation> Simulation::create() {
-  return std::make_shared<Simulation>();
-}
+SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 
-shared_ptr<Process> Simulation::run_process(shared_ptr<Process> process) {
+ProcessPtr Simulation::run_process(ProcessPtr process) {
   auto event = this->event();
   event->add_handler(process);
   schedule(event);
   return process;
 }
 
-shared_ptr<Event> Simulation::event() {
+EventPtr Simulation::event() {
   return std::make_shared<Event>(shared_from_this());
 }
 
-shared_ptr<Event> Simulation::timeout(double delay) {
+EventPtr Simulation::timeout(double delay) {
   auto event = this->event();
   schedule(event, delay);
   return event;
 }
 
-shared_ptr<Event>
-Simulation::any_of(std::initializer_list<shared_ptr<Event>> events) {
+EventPtr Simulation::any_of(std::initializer_list<EventPtr> events) {
   int n = 1;
   for (auto &event : events) {
     if (event->is_triggered()) {
@@ -42,8 +39,7 @@ Simulation::any_of(std::initializer_list<shared_ptr<Event>> events) {
   return process;
 }
 
-shared_ptr<Event>
-Simulation::all_of(std::initializer_list<shared_ptr<Event>> events) {
+EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   int n = 0;
   for (auto &event : events) {
     if (!event->is_triggered()) {
@@ -58,8 +54,7 @@ Simulation::all_of(std::initializer_list<shared_ptr<Event>> events) {
   return process;
 }
 
-shared_ptr<Event> Simulation::schedule(shared_ptr<Event> event,
-                                       double delay /* = 0.0 */) {
+EventPtr Simulation::schedule(EventPtr event, double delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id, event);
   ++next_id;
   return event;
@@ -86,7 +81,7 @@ void Simulation::advance_by(double duration) {
   now = target;
 }
 
-void Simulation::advance_to(shared_ptr<Event> event) {
+void Simulation::advance_to(EventPtr event) {
   // TODO how to handle event abort?
   while (event->is_pending() && has_next()) {
     step();
@@ -106,8 +101,7 @@ double Simulation::peek_next_time() { return queued_events.top().time; }
 
 /* Simulation::QueuedEvent */
 
-Simulation::QueuedEvent::QueuedEvent(double time, size_t id,
-                                     shared_ptr<Event> event)
+Simulation::QueuedEvent::QueuedEvent(double time, size_t id, EventPtr event)
     : time(time), id(id), event(event) {}
 
 bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
@@ -120,10 +114,10 @@ bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
 
 /* Event */
 
-Event::Event(shared_ptr<Simulation> sim)
-    : sim(sim), listeners(new vector<shared_ptr<Process>>()) {}
+Event::Event(SimulationPtr sim)
+    : sim(sim), listeners(new std::vector<ProcessPtr>()) {}
 
-bool Event::add_handler(shared_ptr<Process> process) {
+bool Event::add_handler(ProcessPtr process) {
   if (is_triggered()) {
     return false;
   }
@@ -181,7 +175,7 @@ void Event::Aborted(){};
 
 /* Process */
 
-Process::Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
+Process::Process(SimulationPtr sim) : Event(sim), Protothread() {}
 
 void Process::resume() {
   // Is the process already finished?
@@ -198,13 +192,13 @@ void Process::resume() {
   }
 }
 
-shared_ptr<Process> Process::shared_from_this() {
+ProcessPtr Process::shared_from_this() {
   return std::static_pointer_cast<Process>(Event::shared_from_this());
 }
 
 /* Condition */
 
-Condition::Condition(shared_ptr<Simulation> sim, int n) : Process(sim), n(n) {}
+Condition::Condition(SimulationPtr sim, int n) : Process(sim), n(n) {}
 
 bool Condition::Run() {
   PT_BEGIN();

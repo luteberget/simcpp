@@ -2,6 +2,7 @@
 #define __SIMCPP_H
 
 #include "protothread.h"
+
 #include <memory>
 #include <queue>
 #include <vector>
@@ -15,41 +16,40 @@
 
 namespace simcpp {
 
-using std::priority_queue;
-using std::shared_ptr;
-using std::unique_ptr;
-using std::vector;
-
 class Event;
+using EventPtr = std::shared_ptr<Event>;
 
 class Process;
+using ProcessPtr = std::shared_ptr<Process>;
+
+class Simulation;
+using SimulationPtr = std::shared_ptr<Simulation>;
 
 class Simulation : public std::enable_shared_from_this<Simulation> {
 public:
-  static shared_ptr<Simulation> create();
+  static SimulationPtr create();
 
-  template <class T, class... Args>
-  shared_ptr<Process> start_process(Args &&...args) {
+  template <class T, class... Args> ProcessPtr start_process(Args &&...args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
-  shared_ptr<Process> run_process(shared_ptr<Process> process);
+  ProcessPtr run_process(ProcessPtr process);
 
-  shared_ptr<Event> event();
+  EventPtr event();
 
-  shared_ptr<Event> timeout(double delay);
+  EventPtr timeout(double delay);
 
-  shared_ptr<Event> any_of(std::initializer_list<shared_ptr<Event>> events);
+  EventPtr any_of(std::initializer_list<EventPtr> events);
 
-  shared_ptr<Event> all_of(std::initializer_list<shared_ptr<Event>> events);
+  EventPtr all_of(std::initializer_list<EventPtr> events);
 
-  shared_ptr<Event> schedule(shared_ptr<Event> event, double delay = 0.0);
+  EventPtr schedule(EventPtr event, double delay = 0.0);
 
   bool step();
 
   void advance_by(double duration);
 
-  void advance_to(shared_ptr<Event> event);
+  void advance_to(EventPtr event);
 
   void run();
 
@@ -64,25 +64,25 @@ private:
   public:
     double time;
     size_t id;
-    shared_ptr<Event> event;
+    EventPtr event;
 
-    QueuedEvent(double time, size_t id, shared_ptr<Event> event);
+    QueuedEvent(double time, size_t id, EventPtr event);
 
     bool operator<(const QueuedEvent &other) const;
   };
 
   double now = 0.0;
   size_t next_id = 0;
-  priority_queue<QueuedEvent> queued_events;
+  std::priority_queue<QueuedEvent> queued_events;
 };
 
 class Event : public std::enable_shared_from_this<Event> {
 public:
   enum class State { Pending, Triggered, Aborted };
 
-  Event(shared_ptr<Simulation> sim);
+  Event(SimulationPtr sim);
 
-  bool add_handler(shared_ptr<Process> process);
+  bool add_handler(ProcessPtr process);
 
   void trigger();
 
@@ -103,25 +103,25 @@ public:
   virtual void Aborted();
 
 protected:
-  shared_ptr<Simulation> sim;
+  SimulationPtr sim;
 
 private:
   State state = State::Pending;
-  unique_ptr<vector<shared_ptr<Process>>> listeners;
+  std::unique_ptr<std::vector<ProcessPtr>> listeners;
 };
 
 class Process : public Event, public Protothread {
 public:
-  Process(shared_ptr<Simulation> sim);
+  Process(SimulationPtr sim);
 
   void resume();
 
-  shared_ptr<Process> shared_from_this();
+  ProcessPtr shared_from_this();
 };
 
 class Condition : public Process {
 public:
-  Condition(shared_ptr<Simulation> sim, int n);
+  Condition(SimulationPtr sim, int n);
 
   virtual bool Run() override;
 

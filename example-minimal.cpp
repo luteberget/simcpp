@@ -6,7 +6,7 @@ using std::shared_ptr;
 
 class Car : public simcpp::Process {
 public:
-  Car(shared_ptr<simcpp::Simulation> sim) : Process(sim) {}
+  Car(simcpp::SimulationPtr sim) : Process(sim) {}
 
   virtual bool Run() override {
     PT_BEGIN();

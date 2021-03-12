@@ -13,7 +13,7 @@ private:
   string name;
 
 public:
-  Car(shared_ptr<simcpp::Simulation> sim, string name)
+  Car(simcpp::SimulationPtr sim, string name)
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
 
   virtual bool Run() override {
@@ -30,7 +30,7 @@ public:
 
 class TwoCars : public simcpp::Process {
 public:
-  TwoCars(shared_ptr<simcpp::Simulation> sim) : Process(sim) {}
+  TwoCars(simcpp::SimulationPtr sim) : Process(sim) {}
   virtual bool Run() override {
     PT_BEGIN();
 
