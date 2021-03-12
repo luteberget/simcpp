@@ -4,9 +4,9 @@
 
 using std::shared_ptr;
 
-class Car : public Process {
+class Car : public simcpp::Process {
 public:
-  Car(shared_ptr<Simulation> sim) : Process(sim) {}
+  Car(shared_ptr<simcpp::Simulation> sim) : Process(sim) {}
 
   virtual bool Run() override {
     PT_BEGIN();
@@ -20,7 +20,7 @@ public:
 };
 
 int main() {
-  auto sim = Simulation::create();
+  auto sim = simcpp::Simulation::create();
   sim->start_process<Car>();
   sim->run();
 

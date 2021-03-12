@@ -13,6 +13,8 @@
     }                                                                          \
   } while (0)
 
+namespace simcpp {
+
 using std::priority_queue;
 using std::shared_ptr;
 using std::unique_ptr;
@@ -126,5 +128,7 @@ public:
 private:
   int n;
 };
+
+} // namespace simcpp
 
 #endif

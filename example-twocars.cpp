@@ -6,14 +6,14 @@
 using std::shared_ptr;
 using std::string;
 
-class Car : public Process {
+class Car : public simcpp::Process {
 private:
   bool finished = false;
   double target_time;
   string name;
 
 public:
-  Car(shared_ptr<Simulation> sim, string name)
+  Car(shared_ptr<simcpp::Simulation> sim, string name)
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
 
   virtual bool Run() override {
@@ -28,9 +28,9 @@ public:
   }
 };
 
-class TwoCars : public Process {
+class TwoCars : public simcpp::Process {
 public:
-  TwoCars(shared_ptr<Simulation> sim) : Process(sim) {}
+  TwoCars(shared_ptr<simcpp::Simulation> sim) : Process(sim) {}
   virtual bool Run() override {
     PT_BEGIN();
 
@@ -47,7 +47,7 @@ public:
 };
 
 int main() {
-  auto sim = Simulation::create();
+  auto sim = simcpp::Simulation::create();
   sim->start_process<TwoCars>();
   sim->advance_by(10000);
 

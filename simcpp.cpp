@@ -1,5 +1,7 @@
 #include "simcpp.h"
 
+namespace simcpp {
+
 /* Simulation */
 
 shared_ptr<Simulation> Simulation::create() {
@@ -212,3 +214,5 @@ bool Condition::Run() {
   }
   PT_END();
 }
+
+} // namespace simcpp
