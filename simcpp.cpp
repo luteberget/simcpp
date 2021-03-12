@@ -21,14 +21,18 @@ shared_ptr<Simulation> Simulation::create() {
 }
 
 shared_ptr<Process> Simulation::run_process(shared_ptr<Process> process) {
-  auto event = std::make_shared<Event>(shared_from_this());
+  auto event = this->event();
   event->add_handler(process);
   schedule(event);
   return process;
 }
 
+shared_ptr<Event> Simulation::event() {
+  return std::make_shared<Event>(shared_from_this());
+}
+
 shared_ptr<Event> Simulation::timeout(double delay) {
-  auto event = std::make_shared<Event>(shared_from_this());
+  auto event = this->event();
   schedule(event, delay);
   return event;
 }

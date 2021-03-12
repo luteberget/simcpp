@@ -44,6 +44,8 @@ public:
 
   shared_ptr<Process> run_process(shared_ptr<Process> process);
 
+  shared_ptr<Event> event();
+
   shared_ptr<Event> timeout(double delay);
 
   shared_ptr<Event> any_of(std::initializer_list<shared_ptr<Event>> events);
