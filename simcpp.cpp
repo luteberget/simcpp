@@ -152,7 +152,10 @@ void Event::abort() {
 }
 
 void Event::fire() {
-  // TODO what if already fired? E.g. due to triggering a timeout event
+  if (is_aborted() || is_processed()) {
+    return;
+  }
+
   auto listeners = std::move(this->listeners);
 
   this->listeners = nullptr;
