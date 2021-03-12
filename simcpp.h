@@ -76,6 +76,8 @@ private:
 
 class Event : public std::enable_shared_from_this<Event> {
 public:
+  enum class State { Pending, Triggered, Aborted };
+
   Event(shared_ptr<Simulation> sim);
 
   bool add_handler(shared_ptr<Process> process);
@@ -94,7 +96,7 @@ public:
 
   bool is_processed();
 
-  int get_value();
+  State get_state();
 
   virtual void Aborted();
 
@@ -102,7 +104,7 @@ protected:
   shared_ptr<Simulation> sim;
 
 private:
-  int state = -1;
+  State state = State::Pending;
   unique_ptr<vector<shared_ptr<Process>>> listeners;
 };
 
