@@ -33,6 +33,11 @@ shared_ptr<Event> Simulation::timeout(double delay) {
   return event;
 }
 
+shared_ptr<Event>
+Simulation::all_of(std::initializer_list<shared_ptr<Event>> events) {
+  return start_process<AllOf>(events);
+}
+
 shared_ptr<Event> Simulation::schedule(shared_ptr<Event> event,
                                        double delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id++, event);
