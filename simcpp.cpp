@@ -35,7 +35,15 @@ shared_ptr<Event> Simulation::timeout(double delay) {
 
 shared_ptr<Event>
 Simulation::any_of(std::initializer_list<shared_ptr<Event>> events) {
-  auto process = start_process<AnyOf>();
+  int n = 1;
+  for (auto &event : events) {
+    if (event->is_triggered()) {
+      n = 0;
+      break;
+    }
+  }
+
+  auto process = start_process<Condition>(n);
   for (auto &event : events) {
     event->add_handler(process);
   }
@@ -44,12 +52,24 @@ Simulation::any_of(std::initializer_list<shared_ptr<Event>> events) {
 
 shared_ptr<Event>
 Simulation::all_of(std::initializer_list<shared_ptr<Event>> events) {
-  return start_process<AllOf>(events);
+  int n = 0;
+  for (auto &event : events) {
+    if (!event->is_triggered()) {
+      ++n;
+    }
+  }
+
+  auto process = start_process<Condition>(n);
+  for (auto &event : events) {
+    event->add_handler(process);
+  }
+  return process;
 }
 
 shared_ptr<Event> Simulation::schedule(shared_ptr<Event> event,
                                        double delay /* = 0.0 */) {
-  queued_events.emplace(now + delay, next_id++, event);
+  queued_events.emplace(now + delay, next_id, event);
+  ++next_id;
   return event;
 }
 
@@ -176,27 +196,15 @@ shared_ptr<Process> Process::shared_from_this() {
   return std::static_pointer_cast<Process>(Event::shared_from_this());
 }
 
-/* AnyOf */
+/* Condition */
 
-AnyOf::AnyOf(shared_ptr<Simulation> sim) : Process(sim) {}
+Condition::Condition(shared_ptr<Simulation> sim, int n) : Process(sim), n(n) {}
 
-bool AnyOf::Run() {
+bool Condition::Run() {
   PT_BEGIN();
-  PT_YIELD();
-  // Any time we get called back, we are finished.
-  PT_END();
-}
-
-/* AllOf */
-
-AllOf::AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events)
-    : Process(sim), events(events) {}
-
-bool AllOf::Run() {
-  PT_BEGIN();
-  while (i < events.size()) {
-    PROC_WAIT_FOR(events[i]);
-    i++;
+  while (n > 0) {
+    PT_YIELD();
+    --n;
   }
   PT_END();
 }

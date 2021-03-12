@@ -113,21 +113,14 @@ public:
   shared_ptr<Process> shared_from_this();
 };
 
-class AnyOf : public Process {
+class Condition : public Process {
 public:
-  AnyOf(shared_ptr<Simulation> sim);
+  Condition(shared_ptr<Simulation> sim, int n);
 
   virtual bool Run() override;
-};
 
-class AllOf : public Process {
-  size_t i = 0;
-  vector<shared_ptr<Event>> events;
-
-public:
-  AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events);
-
-  virtual bool Run() override;
+private:
+  int n;
 };
 
 #endif
