@@ -16,6 +16,8 @@
 
 namespace simcpp {
 
+using simtime = double;
+
 class Event;
 using EventPtr = std::shared_ptr<Event>;
 
@@ -37,41 +39,41 @@ public:
 
   EventPtr event();
 
-  EventPtr timeout(double delay);
+  EventPtr timeout(simtime delay);
 
   EventPtr any_of(std::initializer_list<EventPtr> events);
 
   EventPtr all_of(std::initializer_list<EventPtr> events);
 
-  EventPtr schedule(EventPtr event, double delay = 0.0);
+  EventPtr schedule(EventPtr event, simtime delay = 0.0);
 
   bool step();
 
-  void advance_by(double duration);
+  void advance_by(simtime duration);
 
   void advance_to(EventPtr event);
 
   void run();
 
-  double get_now();
+  simtime get_now();
 
   bool has_next();
 
-  double peek_next_time();
+  simtime peek_next_time();
 
 private:
   class QueuedEvent {
   public:
-    double time;
+    simtime time;
     size_t id;
     EventPtr event;
 
-    QueuedEvent(double time, size_t id, EventPtr event);
+    QueuedEvent(simtime time, size_t id, EventPtr event);
 
     bool operator<(const QueuedEvent &other) const;
   };
 
-  double now = 0.0;
+  simtime now = 0.0;
   size_t next_id = 0;
   std::priority_queue<QueuedEvent> queued_events;
 };

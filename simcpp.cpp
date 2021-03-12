@@ -19,7 +19,7 @@ EventPtr Simulation::event() {
   return std::make_shared<Event>(shared_from_this());
 }
 
-EventPtr Simulation::timeout(double delay) {
+EventPtr Simulation::timeout(simtime delay) {
   auto event = this->event();
   schedule(event, delay);
   return event;
@@ -56,7 +56,7 @@ EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   return process;
 }
 
-EventPtr Simulation::schedule(EventPtr event, double delay /* = 0.0 */) {
+EventPtr Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id, event);
   ++next_id;
   return event;
@@ -75,8 +75,8 @@ bool Simulation::step() {
   return true;
 }
 
-void Simulation::advance_by(double duration) {
-  double target = now + duration;
+void Simulation::advance_by(simtime duration) {
+  simtime target = now + duration;
   while (has_next() && peek_next_time() <= target) {
     step();
   }
@@ -95,15 +95,15 @@ void Simulation::run() {
   }
 }
 
-double Simulation::get_now() { return now; }
+simtime Simulation::get_now() { return now; }
 
 bool Simulation::has_next() { return !queued_events.empty(); }
 
-double Simulation::peek_next_time() { return queued_events.top().time; }
+simtime Simulation::peek_next_time() { return queued_events.top().time; }
 
 /* Simulation::QueuedEvent */
 
-Simulation::QueuedEvent::QueuedEvent(double time, size_t id, EventPtr event)
+Simulation::QueuedEvent::QueuedEvent(simtime time, size_t id, EventPtr event)
     : time(time), id(id), event(event) {}
 
 bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
