@@ -153,6 +153,7 @@ void Event::abort() {
 
 void Event::fire() {
   if (is_aborted() || is_processed()) {
+    // TODO handle differently?
     return;
   }
 
