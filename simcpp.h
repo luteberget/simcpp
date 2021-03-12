@@ -34,8 +34,10 @@ public:
         : time(time), id(id), event(event) {}
 
     bool operator<(const QueuedEvent &other) const {
-      if (time != other.time)
+      if (time != other.time) {
         return time > other.time;
+      }
+
       return id > other.id;
     }
   };
@@ -75,8 +77,8 @@ public:
   void advance_to(shared_ptr<Process> process);
 
   void run() {
-    while (step())
-      ;
+    while (step()) {
+    }
   }
   double get_now() { return now; }
 };
@@ -128,8 +130,9 @@ void Process::abort() {
 
 void Process::resume() {
   // Is the process already finished?
-  if (is_triggered())
+  if (is_triggered()) {
     return;
+  }
 
   bool run = Run();
 
@@ -191,8 +194,9 @@ class AnyOf : public Process {
 public:
   AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events)
       : Process(sim) {
-    for (auto &event : events)
+    for (auto &event : events) {
       event->add_handler(shared_from_this());
+    }
   }
   virtual bool Run() override {
     PT_BEGIN();
