@@ -186,10 +186,8 @@ AllOf::AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events)
 bool AllOf::Run() {
   PT_BEGIN();
   while (i < events.size()) {
-    if (!events[i]->is_triggered()) {
-      PROC_WAIT_FOR(events[i]);
-      i++;
-    }
+    PROC_WAIT_FOR(events[i]);
+    i++;
   }
   PT_END();
 }
