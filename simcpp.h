@@ -53,6 +53,10 @@ public:
 
   double get_now();
 
+  bool has_next();
+
+  double peek_next_time();
+
 private:
   class QueuedEvent {
   public:
@@ -68,10 +72,6 @@ private:
   double now = 0.0;
   size_t next_id = 0;
   priority_queue<QueuedEvent> queued_events;
-
-  bool has_next();
-
-  double peek_next_time();
 };
 
 class Event : public std::enable_shared_from_this<Event> {
