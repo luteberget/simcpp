@@ -68,43 +68,45 @@ private:
   double peek_next_time();
 };
 
-class Event {
-private:
-  unique_ptr<vector<shared_ptr<Process>>> listeners;
-
-protected:
-  int value = -1;
-  shared_ptr<Simulation> sim;
-
+class Event : public std::enable_shared_from_this<Event> {
 public:
   Event(shared_ptr<Simulation> sim);
 
   bool add_handler(shared_ptr<Process> process);
 
+  void trigger();
+
+  void abort();
+
+  void fire();
+
+  bool is_pending();
+
+  bool is_triggered();
+
+  bool is_aborted();
+
   bool is_processed();
 
   int get_value();
 
-  void fire();
+  virtual void Aborted();
 
-  bool is_triggered();
+protected:
+  shared_ptr<Simulation> sim;
 
-  bool is_success();
-
-  bool is_failed();
+private:
+  int value = -1;
+  unique_ptr<vector<shared_ptr<Process>>> listeners;
 };
 
-class Process : public Event,
-                public Protothread,
-                public std::enable_shared_from_this<Process> {
+class Process : public Event, public Protothread {
 public:
   Process(shared_ptr<Simulation> sim);
 
   void resume();
 
-  void abort();
-
-  virtual void Aborted();
+  shared_ptr<Process> shared_from_this();
 };
 
 class AnyOf : public Process {

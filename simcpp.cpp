@@ -61,7 +61,8 @@ void Simulation::advance_by(double duration) {
 }
 
 void Simulation::advance_to(shared_ptr<Process> process) {
-  while (!process->is_triggered() && has_next()) {
+  // TODO how to handle process abort?
+  while (process->is_pending() && has_next()) {
     step();
   }
 }
@@ -80,37 +81,63 @@ double Simulation::peek_next_time() { return queued_events.top().time; }
 /* Event */
 
 Event::Event(shared_ptr<Simulation> sim)
-    : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
+    : sim(sim), listeners(new vector<shared_ptr<Process>>()) {}
 
 bool Event::add_handler(shared_ptr<Process> process) {
-  if (is_processed()) {
+  if (is_triggered()) {
     return false;
   }
 
-  listeners->push_back(process);
+  if (is_pending()) {
+    listeners->push_back(process);
+  }
+
   return true;
 }
 
-bool Event::is_processed() { return listeners == nullptr; }
+void Event::trigger() {
+  if (!is_pending()) {
+    // TODO handle differently?
+    return;
+  }
 
-int Event::get_value() { return value; }
+  sim->schedule(shared_from_this());
+  value = 1;
+}
+
+void Event::abort() {
+  if (!is_pending()) {
+    // TODO handle differently?
+    return;
+  }
+
+  value = 2;
+  Aborted();
+}
 
 void Event::fire() {
+  // TODO what if already fired? E.g. due to triggering a timeout event
   auto listeners = std::move(this->listeners);
 
   this->listeners = nullptr;
-  value = 0;
+  value = 1;
 
   for (auto proc : *listeners) {
     proc->resume();
   }
 }
 
-bool Event::is_triggered() { return value != -1; }
+bool Event::is_pending() { return value == -1; }
 
-bool Event::is_success() { return value == 1; }
+bool Event::is_triggered() { return value == 1; }
 
-bool Event::is_failed() { return value == 2; }
+bool Event::is_processed() { return listeners == nullptr; }
+
+bool Event::is_aborted() { return value == 2; }
+
+int Event::get_value() { return value; }
+
+void Event::Aborted(){};
 
 /* Process */
 
@@ -118,26 +145,22 @@ Process::Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
 
 void Process::resume() {
   // Is the process already finished?
-  if (is_triggered()) {
+  if (!is_pending()) {
     return;
   }
 
-  bool run = Run();
+  bool still_running = Run();
 
   // Did the process finish now?
-  if (!run) {
+  if (!still_running) {
     // Process finished
-    value = 1;
-    sim->schedule(shared_from_this());
+    trigger();
   }
 }
 
-void Process::abort() {
-  value = 2; //?
-  Aborted();
+shared_ptr<Process> Process::shared_from_this() {
+  return std::static_pointer_cast<Process>(Event::shared_from_this());
 }
-
-void Process::Aborted(){};
 
 /* AnyOf */
 
