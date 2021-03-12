@@ -48,9 +48,6 @@ bool Simulation::step() {
   queued_events.pop();
   now = queued_event.time;
   auto event = queued_event.event;
-  // TODO Does this keep the shared pointer in scope, making the
-  // automatic memory management useless?
-  // TODO Is this whole approach limited by the stack size?
   event->fire();
   return true;
 }
