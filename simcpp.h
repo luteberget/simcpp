@@ -46,6 +46,8 @@ public:
 
   shared_ptr<Event> timeout(double delay);
 
+  shared_ptr<Event> any_of(std::initializer_list<shared_ptr<Event>> events);
+
   shared_ptr<Event> all_of(std::initializer_list<shared_ptr<Event>> events);
 
   shared_ptr<Event> schedule(shared_ptr<Event> event, double delay = 0.0);
@@ -113,7 +115,7 @@ public:
 
 class AnyOf : public Process {
 public:
-  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events);
+  AnyOf(shared_ptr<Simulation> sim);
 
   virtual bool Run() override;
 };

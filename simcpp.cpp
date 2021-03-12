@@ -34,6 +34,15 @@ shared_ptr<Event> Simulation::timeout(double delay) {
 }
 
 shared_ptr<Event>
+Simulation::any_of(std::initializer_list<shared_ptr<Event>> events) {
+  auto process = start_process<AnyOf>();
+  for (auto &event : events) {
+    event->add_handler(process);
+  }
+  return process;
+}
+
+shared_ptr<Event>
 Simulation::all_of(std::initializer_list<shared_ptr<Event>> events) {
   return start_process<AllOf>(events);
 }
@@ -169,12 +178,7 @@ shared_ptr<Process> Process::shared_from_this() {
 
 /* AnyOf */
 
-AnyOf::AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> events)
-    : Process(sim) {
-  for (auto &event : events) {
-    event->add_handler(shared_from_this());
-  }
-}
+AnyOf::AnyOf(shared_ptr<Simulation> sim) : Process(sim) {}
 
 bool AnyOf::Run() {
   PT_BEGIN();
