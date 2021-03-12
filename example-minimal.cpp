@@ -7,7 +7,8 @@ using std::shared_ptr;
 class Car : public Process {
 public:
   Car(shared_ptr<Simulation> sim) : Process(sim) {}
-  virtual bool Run() {
+
+  virtual bool Run() override {
     PT_BEGIN();
 
     printf("Car running at %g.\n", sim->get_now());

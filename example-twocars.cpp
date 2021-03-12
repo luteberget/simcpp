@@ -15,7 +15,8 @@ private:
 public:
   Car(shared_ptr<Simulation> sim, string name)
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
-  virtual bool Run() {
+
+  virtual bool Run() override {
     PT_BEGIN();
     while (!this->finished) {
       PROC_WAIT_FOR(sim->timeout(5.0));
@@ -30,7 +31,7 @@ public:
 class TwoCars : public Process {
 public:
   TwoCars(shared_ptr<Simulation> sim) : Process(sim) {}
-  virtual bool Run() {
+  virtual bool Run() override {
     PT_BEGIN();
 
     printf("Starting car C1.\n");
