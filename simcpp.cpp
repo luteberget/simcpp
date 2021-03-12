@@ -140,7 +140,7 @@ void Event::trigger() {
   }
 
   sim->schedule(shared_from_this());
-  value = 1;
+  state = 1;
 }
 
 void Event::abort() {
@@ -149,7 +149,7 @@ void Event::abort() {
     return;
   }
 
-  value = 2;
+  state = 2;
   Aborted();
 }
 
@@ -158,22 +158,22 @@ void Event::fire() {
   auto listeners = std::move(this->listeners);
 
   this->listeners = nullptr;
-  value = 1;
+  state = 1;
 
   for (auto proc : *listeners) {
     proc->resume();
   }
 }
 
-bool Event::is_pending() { return value == -1; }
+bool Event::is_pending() { return state == -1; }
 
-bool Event::is_triggered() { return value == 1; }
+bool Event::is_triggered() { return state == 1; }
 
 bool Event::is_processed() { return listeners == nullptr; }
 
-bool Event::is_aborted() { return value == 2; }
+bool Event::is_aborted() { return state == 2; }
 
-int Event::get_value() { return value; }
+int Event::get_value() { return state; }
 
 void Event::Aborted(){};
 

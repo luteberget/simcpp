@@ -102,7 +102,7 @@ protected:
   shared_ptr<Simulation> sim;
 
 private:
-  int value = -1;
+  int state = -1;
   unique_ptr<vector<shared_ptr<Process>>> listeners;
 };
 
