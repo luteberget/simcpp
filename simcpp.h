@@ -46,24 +46,17 @@ public:
     return std::make_shared<Simulation>();
   }
 
-  shared_ptr<Process> run_process(shared_ptr<Process> process);
-
   template <class T, class... Args>
   shared_ptr<Process> start_process(Args &&...args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
+  shared_ptr<Process> run_process(shared_ptr<Process> process);
+
   shared_ptr<Event> timeout(double delay);
 
-private:
-  double now = 0.0;
-  priority_queue<QueuedEvent> queued_events;
-  size_t next_id = 0;
-  bool has_next() { return !queued_events.empty(); }
-  double peek_next_time() { return queued_events.top().time; }
-
-public:
   shared_ptr<Event> schedule(shared_ptr<Event> event, double delay = 0.0);
+
   bool step();
 
   void advance_by(double duration) {
@@ -80,7 +73,17 @@ public:
     while (step()) {
     }
   }
+
   double get_now() { return now; }
+
+private:
+  double now = 0.0;
+  priority_queue<QueuedEvent> queued_events;
+  size_t next_id = 0;
+
+  bool has_next() { return !queued_events.empty(); }
+
+  double peek_next_time() { return queued_events.top().time; }
 };
 
 class Event {
@@ -105,11 +108,15 @@ public:
   }
 
   bool is_processed() { return listeners == nullptr; }
+
   int get_value() { return value; }
+
   void fire();
 
   bool is_triggered() { return value != -1; }
+
   bool is_success() { return value == 1; }
+
   bool is_failed() { return value == 2; }
 };
 
@@ -118,8 +125,11 @@ class Process : public Event,
                 public std::enable_shared_from_this<Process> {
 public:
   Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
+
   void resume();
+
   void abort();
+
   virtual void Aborted(){};
 };
 
