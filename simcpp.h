@@ -20,9 +20,11 @@ using simtime = double;
 
 class Event;
 using EventPtr = std::shared_ptr<Event>;
+using EventWeakPtr = std::weak_ptr<Event>;
 
 class Process;
 using ProcessPtr = std::shared_ptr<Process>;
+using ProcessWeakPtr = std::weak_ptr<Process>;
 
 class Simulation;
 using SimulationPtr = std::shared_ptr<Simulation>;
