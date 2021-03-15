@@ -83,7 +83,7 @@ private:
 
 class Event : public std::enable_shared_from_this<Event> {
 public:
-  enum class State { Pending, Triggered, Aborted };
+  enum class State { Pending, Triggered, Processed, Aborted };
 
   explicit Event(SimulationPtr sim);
 
@@ -112,7 +112,7 @@ protected:
 
 private:
   State state = State::Pending;
-  std::unique_ptr<std::vector<ProcessPtr>> listeners;
+  std::vector<ProcessPtr> listeners = {};
 };
 
 class Process : public Event, public Protothread {

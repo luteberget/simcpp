@@ -116,8 +116,7 @@ bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
 
 /* Event */
 
-Event::Event(SimulationPtr sim)
-    : sim(sim), listeners(new std::vector<ProcessPtr>()) {}
+Event::Event(SimulationPtr sim) : sim(sim) {}
 
 bool Event::add_handler(ProcessPtr process) {
   if (is_triggered()) {
@@ -125,7 +124,7 @@ bool Event::add_handler(ProcessPtr process) {
   }
 
   if (is_pending()) {
-    listeners->push_back(process);
+    listeners.push_back(process);
   }
 
   return true;
@@ -149,6 +148,8 @@ void Event::abort() {
   }
 
   state = State::Aborted;
+  listeners.clear();
+
   Aborted();
 }
 
@@ -158,21 +159,22 @@ void Event::fire() {
     return;
   }
 
-  auto listeners = std::move(this->listeners);
+  state = State::Processed;
 
-  this->listeners = nullptr;
-  state = State::Triggered;
-
-  for (auto proc : *listeners) {
+  for (auto &proc : listeners) {
     proc->resume();
   }
+
+  listeners.clear();
 }
 
 bool Event::is_pending() { return state == State::Pending; }
 
-bool Event::is_triggered() { return state == State::Triggered; }
+bool Event::is_triggered() {
+  return state == State::Triggered || state == State::Processed;
+}
 
-bool Event::is_processed() { return listeners == nullptr; }
+bool Event::is_processed() { return state == State::Processed; }
 
 bool Event::is_aborted() { return state == State::Aborted; }
 
