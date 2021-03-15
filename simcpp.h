@@ -26,6 +26,7 @@ using ProcessPtr = std::shared_ptr<Process>;
 
 class Simulation;
 using SimulationPtr = std::shared_ptr<Simulation>;
+using SimulationWeakPtr = std::weak_ptr<Simulation>;
 
 class Simulation : public std::enable_shared_from_this<Simulation> {
 public:
@@ -105,7 +106,7 @@ public:
   virtual void Aborted();
 
 protected:
-  SimulationPtr sim;
+  SimulationWeakPtr sim;
 
 private:
   State state = State::Pending;

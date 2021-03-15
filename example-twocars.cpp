@@ -12,14 +12,15 @@ public:
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
 
   bool Run() override {
+    auto sim = this->sim.lock();
+
     PT_BEGIN();
-    while (!this->finished) {
+
+    while (sim->get_now() < target_time) {
       PROC_WAIT_FOR(sim->timeout(5.0));
-      printf("Car %s running at %g.\n", this->name.c_str(), sim->get_now());
-      if (sim->get_now() >= this->target_time) {
-        this->finished = true;
-      }
+      printf("Car %s running at %g.\n", name.c_str(), sim->get_now());
     }
+
     PT_END();
   }
 
@@ -34,6 +35,8 @@ public:
   explicit TwoCars(simcpp::SimulationPtr sim) : Process(sim) {}
 
   bool Run() override {
+    auto sim = this->sim.lock();
+
     PT_BEGIN();
 
     printf("Starting car C1.\n");

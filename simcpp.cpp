@@ -137,6 +137,7 @@ void Event::trigger() {
     return;
   }
 
+  auto sim = this->sim.lock();
   sim->schedule(shared_from_this());
   state = State::Triggered;
 }

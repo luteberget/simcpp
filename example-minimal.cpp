@@ -9,6 +9,8 @@ public:
   explicit Car(simcpp::SimulationPtr sim) : Process(sim) {}
 
   bool Run() override {
+    auto sim = this->sim.lock();
+
     PT_BEGIN();
 
     printf("Car running at %g.\n", sim->get_now());
