@@ -5,7 +5,7 @@
 
 class Car : public simcpp::Process {
 public:
-  explicit Car(simcpp::SimulationPtr sim, string name)
+  explicit Car(simcpp::SimulationPtr sim, std::string name)
       : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
 
   bool Run() override {
