@@ -1,7 +1,5 @@
 #include "simcpp.h"
 
-#include <utility>
-
 namespace simcpp {
 
 /* Simulation */
