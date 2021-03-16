@@ -83,11 +83,12 @@ void Simulation::advance_by(simtime duration) {
   now = target;
 }
 
-void Simulation::advance_to(EventPtr event) {
-  // TODO how to handle event abort?
+bool Simulation::advance_to(EventPtr event) {
   while (event->is_pending() && has_next()) {
     step();
   }
+
+  return event->is_triggered();
 }
 
 void Simulation::run() {
@@ -130,32 +131,33 @@ bool Event::add_handler(ProcessPtr process) {
   return true;
 }
 
-void Event::trigger() {
+bool Event::trigger() {
   if (!is_pending()) {
-    // TODO handle differently?
-    return;
+    return false;
   }
 
   auto sim = this->sim.lock();
   sim->schedule(shared_from_this());
   state = State::Triggered;
+
+  return true;
 }
 
-void Event::abort() {
+bool Event::abort() {
   if (!is_pending()) {
-    // TODO handle differently?
-    return;
+    return false;
   }
 
   state = State::Aborted;
   listeners.clear();
 
   Aborted();
+
+  return true;
 }
 
 void Event::fire() {
   if (is_aborted() || is_processed()) {
-    // TODO handle differently?
     return;
   }
 

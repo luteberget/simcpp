@@ -54,7 +54,7 @@ public:
 
   void advance_by(simtime duration);
 
-  void advance_to(EventPtr event);
+  bool advance_to(EventPtr event);
 
   void run();
 
@@ -89,9 +89,9 @@ public:
 
   bool add_handler(ProcessPtr process);
 
-  void trigger();
+  bool trigger();
 
-  void abort();
+  bool abort();
 
   void fire();
 
