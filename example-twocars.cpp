@@ -3,9 +3,6 @@
 
 #include "simcpp.h"
 
-using std::shared_ptr;
-using std::string;
-
 class Car : public simcpp::Process {
 public:
   explicit Car(simcpp::SimulationPtr sim, string name)
@@ -27,7 +24,7 @@ public:
 private:
   bool finished = false;
   double target_time;
-  string name;
+  std::string name;
 };
 
 class TwoCars : public simcpp::Process {

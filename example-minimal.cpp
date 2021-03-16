@@ -2,8 +2,6 @@
 
 #include "simcpp.h"
 
-using std::shared_ptr;
-
 class Car : public simcpp::Process {
 public:
   explicit Car(simcpp::SimulationPtr sim) : Process(sim) {}
