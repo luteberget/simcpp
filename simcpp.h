@@ -1,10 +1,11 @@
-#ifndef __SIMCPP_H
-#define __SIMCPP_H
+#ifndef SIMCPP_H_
+#define SIMCPP_H_
 
-#include "protothread.h"
 #include <memory>
 #include <queue>
 #include <vector>
+
+#include "protothread.h"
 
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
@@ -13,217 +14,126 @@
     }                                                                          \
   } while (0)
 
-using std::priority_queue;
-using std::shared_ptr;
-using std::unique_ptr;
-using std::vector;
+namespace simcpp {
+
+using simtime = double;
 
 class Event;
+using EventPtr = std::shared_ptr<Event>;
+using EventWeakPtr = std::weak_ptr<Event>;
+
 class Process;
+using ProcessPtr = std::shared_ptr<Process>;
+using ProcessWeakPtr = std::weak_ptr<Process>;
+
+class Simulation;
+using SimulationPtr = std::shared_ptr<Simulation>;
+using SimulationWeakPtr = std::weak_ptr<Simulation>;
+
 class Simulation : public std::enable_shared_from_this<Simulation> {
-
 public:
-  class QueuedEvent {
-  public:
-    double time;
-    size_t id;
-    shared_ptr<Event> event;
-    QueuedEvent(double t, size_t id, shared_ptr<Event> e)
-        : time(t), id(id), event(e) {}
+  static SimulationPtr create();
 
-    bool operator<(const QueuedEvent &b) const {
-      if (this->time != b.time)
-        return this->time > b.time;
-      return this->id > b.id;
-    }
-  };
-
-  static shared_ptr<Simulation> create() {
-    return std::make_shared<Simulation>();
-  }
-  shared_ptr<Process> run_process(shared_ptr<Process> p);
-
-  template <class T, class... Args>
-  shared_ptr<Process> start_process(Args &&...args) {
+  template <class T, class... Args> ProcessPtr start_process(Args &&...args) {
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
-  shared_ptr<Event> timeout(double delay);
+  ProcessPtr run_process(ProcessPtr process);
 
-private:
-  double now = 0.0;
-  priority_queue<QueuedEvent> events;
-  size_t id_counter = 0;
-  bool has_next() { return !this->events.empty(); }
-  double peek_next_time() { return this->events.top().time; }
+  EventPtr event();
 
-public:
-  shared_ptr<Event> schedule(shared_ptr<Event> e, double delay = 0.0);
+  EventPtr timeout(simtime delay);
+
+  EventPtr any_of(std::initializer_list<EventPtr> events);
+
+  EventPtr all_of(std::initializer_list<EventPtr> events);
+
+  EventPtr schedule(EventPtr event, simtime delay = 0.0);
+
   bool step();
 
-  void advance_by(double t) {
-    double target = this->now + t;
-    while (this->has_next() && this->peek_next_time() <= target) {
-      this->step();
-    }
-    this->now = target;
-  }
+  void advance_by(simtime duration);
 
-  void advance_to(shared_ptr<Process> p);
+  bool advance_to(EventPtr event);
 
-  void run() {
-    while (this->step())
-      ;
-  }
-  double get_now() { return this->now; }
+  void run();
+
+  simtime get_now();
+
+  bool has_next();
+
+  simtime peek_next_time();
+
+private:
+  class QueuedEvent {
+  public:
+    simtime time;
+    size_t id;
+    EventPtr event;
+
+    QueuedEvent(simtime time, size_t id, EventPtr event);
+
+    bool operator<(const QueuedEvent &other) const;
+  };
+
+  simtime now = 0.0;
+  size_t next_id = 0;
+  std::priority_queue<QueuedEvent> queued_events;
 };
 
-class Event {
-private:
-  unique_ptr<vector<shared_ptr<Process>>> listeners;
-
-protected:
-  shared_ptr<Simulation> sim;
-  int value = -1;
-
+class Event : public std::enable_shared_from_this<Event> {
 public:
-  Event(shared_ptr<Simulation> sim)
-      : listeners(new vector<shared_ptr<Process>>()), sim(sim) {}
+  enum class State { Pending, Triggered, Processed, Aborted };
 
-  bool add_handler(shared_ptr<Process> p) {
-    if (is_processed()) {
-      return false;
-    }
+  explicit Event(SimulationPtr sim);
 
-    listeners->push_back(p);
-    return true;
-  }
+  bool add_handler(ProcessPtr process);
 
-  bool is_processed() { return this->listeners == nullptr; }
-  int get_value() { return this->value; }
+  bool trigger();
+
+  bool abort();
+
   void fire();
 
-  bool is_triggered() { return this->value != -1; }
-  bool is_success() { return this->value == 1; }
-  bool is_failed() { return this->value == 2; }
+  bool is_pending();
+
+  bool is_triggered();
+
+  bool is_aborted();
+
+  bool is_processed();
+
+  State get_state();
+
+  virtual void Aborted();
+
+protected:
+  SimulationWeakPtr sim;
+
+private:
+  State state = State::Pending;
+  std::vector<ProcessPtr> listeners = {};
 };
 
-class Process : public Event,
-                public Protothread,
-                public std::enable_shared_from_this<Process> {
+class Process : public Event, public Protothread {
 public:
-  Process(shared_ptr<Simulation> sim) : Event(sim), Protothread() {}
+  explicit Process(SimulationPtr sim);
+
   void resume();
-  void abort();
-  virtual void Aborted(){};
+
+  ProcessPtr shared_from_this();
 };
 
-void Process::abort() {
-  this->value = 2; //?
-  Aborted();
-}
-
-void Process::resume() {
-  // Is the process already finished?
-  if (this->is_triggered())
-    return;
-
-  bool run = Run();
-
-  // Did the process finish now?
-  if (!run) {
-    // Process finished
-    this->value = 1;
-    this->sim->schedule(shared_from_this());
-  }
-}
-
-shared_ptr<Event> Simulation::schedule(shared_ptr<Event> e, double delay) {
-  this->events.emplace(this->now + delay, id_counter++, e);
-  return e;
-}
-
-bool Simulation::step() {
-  if (this->events.empty()) {
-    return false;
-  }
-
-  auto queuedEvent = this->events.top();
-  this->events.pop();
-  // printf("Stepping from \t%g to \t%g\n",this->now,queuedEvent.time);
-  this->now = queuedEvent.time;
-  auto event = queuedEvent.event;
-  // TODO Does this keep the shared pointer in scope, making the
-  // automatic memory management useless?
-  // TODO Is this whole approach limited by the stack size?
-  event->fire();
-  return true;
-}
-
-void Event::fire() {
-  auto listeners = std::move(this->listeners);
-
-  this->listeners = nullptr;
-  this->value = 0;
-
-  for (auto proc : *listeners) {
-    proc->resume();
-  }
-}
-
-shared_ptr<Process> Simulation::run_process(shared_ptr<Process> p) {
-  auto ev = std::make_shared<Event>(shared_from_this());
-  ev->add_handler(p);
-  this->schedule(ev);
-  return p;
-}
-
-shared_ptr<Event> Simulation::timeout(double delay) {
-  auto ev = std::make_shared<Event>(shared_from_this());
-  this->schedule(ev, delay);
-  return ev;
-}
-
-class AnyOf : public Process {
+class Condition : public Process {
 public:
-  AnyOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v)
-      : Process(sim) {
-    for (auto &e : v)
-      e->add_handler(shared_from_this());
-  }
-  virtual bool Run() override {
-    PT_BEGIN();
-    PT_YIELD();
-    // Any time we get called back, we are finished.
-    PT_END();
-  }
-};
-;
+  Condition(SimulationPtr sim, int n);
 
-// ALLOF event
-class AllOf : public Process {
-  vector<shared_ptr<Event>> v;
-  size_t i = 0;
+  bool Run() override;
 
-public:
-  AllOf(shared_ptr<Simulation> sim, vector<shared_ptr<Event>> v)
-      : Process(sim), v(v) {}
-  virtual bool Run() override {
-    PT_BEGIN();
-    while (this->i < this->v.size()) {
-      if (!this->v[i]->is_triggered()) {
-        PROC_WAIT_FOR(this->v[i]);
-        i++;
-      }
-    }
-    PT_END();
-  }
+private:
+  int n;
 };
 
-void Simulation::advance_to(shared_ptr<Process> p) {
-  while (!p->is_triggered() && this->has_next()) {
-    this->step();
-  }
-}
+} // namespace simcpp
 
-#endif
+#endif // SIMCPP_H_

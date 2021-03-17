@@ -1,33 +1,39 @@
-#include "simcpp.h"
+#include <cstdio>
 #include <string>
-using std::shared_ptr;
-using std::string;
 
-class Car : public Process {
+#include "simcpp.h"
+
+class Car : public simcpp::Process {
+public:
+  explicit Car(simcpp::SimulationPtr sim, std::string name)
+      : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
+
+  bool Run() override {
+    auto sim = this->sim.lock();
+
+    PT_BEGIN();
+
+    while (sim->get_now() < target_time) {
+      PROC_WAIT_FOR(sim->timeout(5.0));
+      printf("Car %s running at %g.\n", name.c_str(), sim->get_now());
+    }
+
+    PT_END();
+  }
+
 private:
   bool finished = false;
   double target_time;
-  string name;
-
-public:
-  Car(shared_ptr<Simulation> sim, string name)
-      : Process(sim), target_time(sim->get_now() + 100.0), name(name) {}
-  virtual bool Run() {
-    PT_BEGIN();
-    while (!this->finished) {
-      PROC_WAIT_FOR(sim->timeout(5.0));
-      printf("Car %s running at %g.\n", this->name.c_str(), sim->get_now());
-      if (sim->get_now() >= this->target_time)
-        this->finished = true;
-    }
-    PT_END();
-  }
+  std::string name;
 };
 
-class TwoCars : public Process {
+class TwoCars : public simcpp::Process {
 public:
-  TwoCars(shared_ptr<Simulation> sim) : Process(sim) {}
-  virtual bool Run() {
+  explicit TwoCars(simcpp::SimulationPtr sim) : Process(sim) {}
+
+  bool Run() override {
+    auto sim = this->sim.lock();
+
     PT_BEGIN();
 
     printf("Starting car C1.\n");
@@ -43,7 +49,7 @@ public:
 };
 
 int main() {
-  auto sim = Simulation::create();
+  auto sim = simcpp::Simulation::create();
   sim->start_process<TwoCars>();
   sim->advance_by(10000);
 

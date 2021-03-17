@@ -5,14 +5,17 @@ Aims to be a port of [SimPy](https://simpy.readthedocs.io/en/latest/).
 Based on [Protothreads](http://dunkels.com/adam/pt/) and a [C++ port of Protothreads](https://github.com/benhoyt/protothreads-cpp).
 
 ## Minimal example
+
 ```c++
 #include "simcpp.h"
-using std::shared_ptr;
 
-class Car : public Process {
+class Car : public simcpp::Process {
 public:
-  Car(shared_ptr<Simulation> sim) : Process(sim) {}
-  virtual bool Run() {
+  explicit Car(simcpp::SimulationPtr sim) : Process(sim) {}
+
+  bool Run() override {
+    auto sim = this->sim.lock();
+
     PT_BEGIN();
 
     printf("Car running at %g.\n", sim->get_now());
@@ -24,7 +27,7 @@ public:
 };
 
 int main() {
-  auto sim = Simulation::create();
+  auto sim = simcpp::Simulation::create();
   sim->start_process<Car>();
   sim->run();
 

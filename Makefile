@@ -1,8 +1,13 @@
-all: example-minimal example-twocars
-.PHONY: all
+HEADER=simcpp.h protothread.h
+SOURCE=simcpp.cpp
+EXE=example-minimal example-twocars
 
-example-minimal: example-minimal.cpp simcpp.h
-	g++ -Wall -std=c++11 example-minimal.cpp -o example-minimal
+.PHONY: clean
 
-example-twocars: example-twocars.cpp simcpp.h
-	g++ -Wall -std=c++11 example-twocars.cpp -o example-twocars
+all: $(EXE)
+
+%: %.cpp $(HEADER) $(SOURCE)
+	g++ -Wall -std=c++11 $< $(SOURCE) -o $@
+
+clean:
+	rm $(EXE)
