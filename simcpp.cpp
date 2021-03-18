@@ -6,11 +6,10 @@ namespace simcpp {
 
 SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 
-ProcessPtr Simulation::run_process(ProcessPtr process) {
+void Simulation::run_process(ProcessPtr process) {
   auto event = this->event();
   event->add_handler(process);
   event->trigger();
-  return process;
 }
 
 EventPtr Simulation::event() {

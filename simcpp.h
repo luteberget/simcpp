@@ -41,7 +41,7 @@ public:
     return run_process(std::make_shared<T>(shared_from_this(), args...));
   }
 
-  ProcessPtr run_process(ProcessPtr process);
+  void run_process(ProcessPtr process);
 
   EventPtr event();
 
