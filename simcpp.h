@@ -37,11 +37,21 @@ class Simulation : public std::enable_shared_from_this<Simulation> {
 public:
   static SimulationPtr create();
 
-  template <class T, class... Args> ProcessPtr start_process(Args &&...args) {
-    return run_process(std::make_shared<T>(shared_from_this(), args...));
+  template <typename T, typename... Args>
+  std::shared_ptr<T> start_process(Args &&...args) {
+    auto process = std::make_shared<T>(shared_from_this(), args...);
+    run_process(process);
+    return process;
   }
 
-  void run_process(ProcessPtr process);
+  template <typename T, typename... Args>
+  std::shared_ptr<T> start_process_delayed(simtime delay, Args &&...args) {
+    auto process = std::make_shared<T>(shared_from_this(), args...);
+    run_process(process, delay);
+    return process;
+  }
+
+  void run_process(ProcessPtr process, simtime delay = 0.0);
 
   EventPtr event();
 

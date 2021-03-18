@@ -6,10 +6,10 @@ namespace simcpp {
 
 SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 
-void Simulation::run_process(ProcessPtr process) {
+void Simulation::run_process(ProcessPtr process, simtime delay /* = 0.0 */) {
   auto event = this->event();
   event->add_handler(process);
-  event->trigger();
+  event->trigger(delay);
 }
 
 EventPtr Simulation::event() {
