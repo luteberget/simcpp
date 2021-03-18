@@ -93,7 +93,7 @@ public:
 
   bool abort();
 
-  void fire();
+  void process();
 
   bool is_pending();
 

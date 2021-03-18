@@ -69,7 +69,7 @@ bool Simulation::step() {
   queued_events.pop();
   now = queued_event.time;
   auto event = queued_event.event;
-  event->fire();
+  event->process();
   return true;
 }
 
@@ -154,7 +154,7 @@ bool Event::abort() {
   return true;
 }
 
-void Event::fire() {
+void Event::process() {
   if (is_aborted() || is_processed()) {
     return;
   }
