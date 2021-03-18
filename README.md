@@ -99,65 +99,61 @@ If you want to improve SimCpp, feel free to submit a pull request.
 ### Creating the simulation
 
 ```c++
-auto sim = simcpp::Simulation::create();
+simcpp::SimulationPtr sim = simcpp::Simulation::create();
+// or
+std::shared_ptr<simcpp::Simulation> sim2 = simcpp::Simulation::create();
 ```
 
 ### Starting processes
 
-Construct the `Car` process with two additional arguments and run it:
+Construct the `MyProcess` process with two additional arguments and run it:
 
-*The `Car` instance is returned.*
+*The `MyProcess` instance is returned.*
 
 ```c++
-auto car = sim->start_process<Car>(arg1, arg2);
+std::shared_ptr<MyProcess> process = sim->start_process<MyProcess>(arg1, arg2);
 ```
 
-Construct the `Car` process with two additional arguments and run it after the given delay:
+Construct the `MyProcess` process with two additional arguments and run it after the given delay:
 
-*The `Car` instance is returned.*
-
-```c++
-auto car = sim->start_process_delayed<Car>(delay, arg1, arg2);
-```
-
-Manually construct the `Car` process using `std::make_shared` and run it:
+*The `MyProcess` instance is returned.*
 
 ```c++
-auto car = std::make_shared<Car>(sim, arg1, arg2);
-sim->run_process(car);
-```
-
-Manually construct the `Car` process using `std::make_shared` and run it after the given delay:
-
-```c++
-auto car = std::make_shared<Car>(sim, arg1, arg2);
-sim->run_process(car, delay);
+std::shared_ptr<MyProcess> = sim->start_process_delayed<MyProcess>(delay, arg1, arg2);
 ```
 
 ### Creating events
 
-Create an event:
+Construct an event:
 
 ```c++
-auto event = sim->event();
+simcpp::EventPtr event = sim->event();
+// or
+std::shared_ptr<simcpp::Event> event = sim->event();
 ```
 
-Create a timeout event which is scheduled to be processed after the given delay:
+Construct the custom `MyEvent` event with two additional arguments:
 
 ```c++
-auto event = sim->timeout(delay);
+std::shared_ptr<MyEvent> event = sim->event<MyEvent>(arg1, arg2);
 ```
 
-Create an event which is triggered when any of the given events is processed:
+Construct a timeout event which is scheduled to be processed after the given delay:
 
 ```c++
-auto event = sim->any_of({ event1, event2 });
+simcpp::EventPtr event = sim->timeout(delay);
 ```
 
-Create an event which is triggered when all of the given events are processed:
+Construct an event which is triggered when any of the given events is processed:
 
 ```c++
-auto event = sim->all_of({ event1, event2 });
+simcpp::EventPtr event = sim->any_of({ event1, event2 });
+```
+
+Construct an event which is triggered when all of the given events are processed:
+
+```c++
+simcpp::EventPtr event = sim->all_of({ event1, event2 });
 ```
 
 ### Running the simulation
@@ -306,8 +302,8 @@ Note that the `sim` attribute is only a weak pointer to the simulation instance.
 It must be converted to a shared pointer first to use it (`sim.lock()`).
 
 ```c++
-class MyEvent : simcpp::Event {
-  MyEvent(simcpp::SimulationPtr sim, int arg1) : Event(sim) {}
+class MyEvent : public simcpp::Event {
+  MyEvent(simcpp::SimulationPtr sim, int arg1, int arg2) : Event(sim) {}
 
   void Aborted() override {
     // ...
@@ -323,11 +319,11 @@ Note that the `sim` attribute is only a weak pointer to the simulation instance.
 It must be converted to a shared pointer first to use it (`sim.lock()`).
 
 ```c++
-class MyProcess : simcpp::Process {
-  MyProcess(simcpp::SimulationPtr sim, int arg1) : Process(sim) {}
+class MyProcess : public simcpp::Process {
+  MyProcess(simcpp::SimulationPtr sim, int arg1, int arg2) : Process(sim) {}
 
   bool Run() override {
-    auto sim = this->sim.lock();
+    simcpp::SimulationPtr sim = this->sim.lock();
 
     PT_BEGIN();
     // ...

@@ -15,10 +15,6 @@ void Simulation::run_process(ProcessPtr process, simtime delay /* = 0.0 */) {
   event->trigger(delay);
 }
 
-EventPtr Simulation::event() {
-  return std::make_shared<Event>(shared_from_this());
-}
-
 EventPtr Simulation::timeout(simtime delay) {
   auto event = this->event();
   event->trigger(delay);

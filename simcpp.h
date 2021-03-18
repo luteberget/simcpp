@@ -53,8 +53,8 @@ public:
    * Construct a process and run it immediately.
    *
    * @tparam T Process class. Must be a subclass of Process.
-   * @tparam Args Argument types of the constructor of T.
-   * @param args Arguments for the construction of T.
+   * @tparam Args Additional argument types of the constructor of T.
+   * @param args Additional arguments for the construction of T.
    * @return Process instance.
    */
   template <typename T, typename... Args>
@@ -68,9 +68,9 @@ public:
    * Construct a process and run it after a delay.
    *
    * @tparam T Process class. Must be a subclass of Process.
-   * @tparam Args Argument types of the constructor of T.
+   * @tparam Args Additional argument types of the constructor of T.
    * @param delay Delay after which to run the process.
-   * @param args Arguments for the construction of T.
+   * @param args Additional arguments for the construction of T.
    * @return Process instance.
    */
   template <typename T, typename... Args>
@@ -89,14 +89,20 @@ public:
   void run_process(ProcessPtr process, simtime delay = 0.0);
 
   /**
-   * Create an event.
+   * Construct an event.
    *
+   * @tparam T Event class. Must be Event or a subclass thereof.
+   * @tparam Args Additional argument types of the constructor.
+   * @param args Additional arguments for the construction of T.
    * @return Event instance.
    */
-  EventPtr event();
+  template <typename T = Event, typename... Args>
+  std::shared_ptr<T> event(Args &&...args) {
+    return std::make_shared<T>(shared_from_this(), args...);
+  }
 
   /**
-   * Create a timeout event.
+   * Construct an event and schedule it to be processed  after a delay.
    *
    * @param delay Delay after which the event is processed.
    * @return Event instance.
