@@ -112,7 +112,7 @@ protected:
 
 private:
   State state = State::Pending;
-  std::vector<ProcessPtr> listeners = {};
+  std::vector<ProcessPtr> handlers = {};
 };
 
 class Process : public Event, public Protothread {

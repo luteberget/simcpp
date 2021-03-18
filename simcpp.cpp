@@ -123,7 +123,7 @@ bool Event::add_handler(ProcessPtr process) {
   }
 
   if (is_pending()) {
-    listeners.push_back(process);
+    handlers.push_back(process);
   }
 
   return true;
@@ -147,7 +147,7 @@ bool Event::abort() {
   }
 
   state = State::Aborted;
-  listeners.clear();
+  handlers.clear();
 
   Aborted();
 
@@ -161,11 +161,11 @@ void Event::process() {
 
   state = State::Processed;
 
-  for (auto &proc : listeners) {
+  for (auto &proc : handlers) {
     proc->resume();
   }
 
-  listeners.clear();
+  handlers.clear();
 }
 
 bool Event::is_pending() { return state == State::Pending; }
