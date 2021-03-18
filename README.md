@@ -95,6 +95,6 @@ If you want to improve SimCpp, feel free to submit a pull request.
 
 ## Copyright and License
 
-Copyright (c) 2021 Bjørnar Steinnes Luteberget.
+Copyright © 2021 Bjørnar Steinnes Luteberget.
 
 Licensed under the MIT License. See the LICENSE file for details.
