@@ -118,12 +118,18 @@ bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
 Event::Event(SimulationPtr sim) : sim(sim) {}
 
 bool Event::add_handler(ProcessPtr process) {
+  // Handler takes an additional EventPtr arg, but this is ignored by the
+  // bound function.
+  return add_handler(std::bind(&Process::resume, process));
+}
+
+bool Event::add_handler(Handler handler) {
   if (is_triggered()) {
     return false;
   }
 
   if (is_pending()) {
-    handlers.push_back(process);
+    handlers.push_back(handler);
   }
 
   return true;
@@ -161,8 +167,8 @@ void Event::process() {
 
   state = State::Processed;
 
-  for (auto &proc : handlers) {
-    proc->resume();
+  for (auto &handler : handlers) {
+    handler(shared_from_this());
   }
 
   handlers.clear();

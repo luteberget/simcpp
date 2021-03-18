@@ -1,6 +1,7 @@
 #ifndef SIMCPP_H_
 #define SIMCPP_H_
 
+#include <functional>
 #include <memory>
 #include <queue>
 #include <vector>
@@ -29,6 +30,8 @@ using ProcessWeakPtr = std::weak_ptr<Process>;
 class Simulation;
 using SimulationPtr = std::shared_ptr<Simulation>;
 using SimulationWeakPtr = std::weak_ptr<Simulation>;
+
+using Handler = std::function<void(EventPtr)>;
 
 class Simulation : public std::enable_shared_from_this<Simulation> {
 public:
@@ -88,6 +91,7 @@ public:
   explicit Event(SimulationPtr sim);
 
   bool add_handler(ProcessPtr process);
+  bool add_handler(Handler handler);
 
   bool trigger();
 
@@ -112,7 +116,7 @@ protected:
 
 private:
   State state = State::Pending;
-  std::vector<ProcessPtr> handlers = {};
+  std::vector<Handler> handlers = {};
 };
 
 class Process : public Event, public Protothread {
