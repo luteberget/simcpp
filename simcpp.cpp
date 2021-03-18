@@ -9,7 +9,7 @@ SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 ProcessPtr Simulation::run_process(ProcessPtr process) {
   auto event = this->event();
   event->add_handler(process);
-  schedule(event);
+  event->trigger();
   return process;
 }
 
@@ -19,7 +19,7 @@ EventPtr Simulation::event() {
 
 EventPtr Simulation::timeout(simtime delay) {
   auto event = this->event();
-  schedule(event, delay);
+  event->trigger(delay);
   return event;
 }
 
@@ -135,14 +135,17 @@ bool Event::add_handler(Handler handler) {
   return true;
 }
 
-bool Event::trigger() {
+bool Event::trigger(simtime delay /* = 0.0 */) {
   if (!is_pending()) {
     return false;
   }
 
   auto sim = this->sim.lock();
-  sim->schedule(shared_from_this());
-  state = State::Triggered;
+  sim->schedule(shared_from_this(), delay);
+
+  if (delay == 0.0) {
+    state = State::Triggered;
+  }
 
   return true;
 }

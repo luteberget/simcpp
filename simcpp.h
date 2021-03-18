@@ -93,7 +93,7 @@ public:
   bool add_handler(ProcessPtr process);
   bool add_handler(Handler handler);
 
-  bool trigger();
+  bool trigger(simtime delay = 0.0);
 
   bool abort();
 
