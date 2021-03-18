@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Bjørnar Steinnes Luteberget
+// Licensed under the MIT license. See the LICENSE file for details.
+
 #include "simcpp.h"
 
 namespace simcpp {

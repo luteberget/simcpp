@@ -1,3 +1,6 @@
+// Copyright (c) 2021 Bjørnar Steinnes Luteberget
+// Licensed under the MIT license. See the LICENSE file for details.
+
 #ifndef SIMCPP_H_
 #define SIMCPP_H_
 
