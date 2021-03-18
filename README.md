@@ -300,6 +300,7 @@ The `simcpp::Event` class can be subclassed to create custom event classes.
 Custom events can take additonal arguments in their constructor, store attributes, offer methods, and override the `Aborted` callback.
 Note that the `sim` attribute is only a weak pointer to the simulation instance.
 It must be converted to a shared pointer first to use it (`sim.lock()`).
+Never store a shared pointer to the simulaiton instance as a permanent class attribute, this leads to cyclic references and therefore memory leaks.
 
 ```c++
 class MyEvent : public simcpp::Event {
@@ -314,9 +315,10 @@ class MyEvent : public simcpp::Event {
 ### Subclassing `simcpp::Process`
 
 The `simcpp::Process` class can be subclassed to create process classes.
-Custom events can take additonal arguments in their constructor, store attributes, offer methods, and override the `Run` method and `Aborted` callback.
+Custom processes can take additonal arguments in their constructor, store attributes, offer methods, and override the `Run` method and `Aborted` callback.
 Note that the `sim` attribute is only a weak pointer to the simulation instance.
 It must be converted to a shared pointer first to use it (`sim.lock()`).
+Never store a shared pointer to the simulation instance as a permanent class attribute, this leads to cyclic references and therefore memory leaks.
 
 ```c++
 class MyProcess : public simcpp::Process {
