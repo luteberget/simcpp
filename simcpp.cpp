@@ -54,10 +54,9 @@ EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   return process;
 }
 
-EventPtr Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
+void Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id, event);
   ++next_id;
-  return event;
 }
 
 bool Simulation::step() {

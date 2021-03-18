@@ -51,7 +51,7 @@ public:
 
   EventPtr all_of(std::initializer_list<EventPtr> events);
 
-  EventPtr schedule(EventPtr event, simtime delay = 0.0);
+  void schedule(EventPtr event, simtime delay = 0.0);
 
   bool step();
 
