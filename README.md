@@ -304,6 +304,7 @@ Never store a shared pointer to the simulaiton instance as a permanent class att
 
 ```c++
 class MyEvent : public simcpp::Event {
+public:
   MyEvent(simcpp::SimulationPtr sim, int arg1, int arg2) : Event(sim) {}
 
   void Aborted() override {
@@ -322,6 +323,7 @@ Never store a shared pointer to the simulation instance as a permanent class att
 
 ```c++
 class MyProcess : public simcpp::Process {
+public:
   MyProcess(simcpp::SimulationPtr sim, int arg1, int arg2) : Process(sim) {}
 
   bool Run() override {
