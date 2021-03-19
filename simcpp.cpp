@@ -1,3 +1,6 @@
+// Copyright © 2021 Bjørnar Steinnes Luteberget
+// Licensed under the MIT license. See the LICENSE file for details.
+
 #include "simcpp.h"
 
 namespace simcpp {
@@ -6,20 +9,15 @@ namespace simcpp {
 
 SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 
-ProcessPtr Simulation::run_process(ProcessPtr process) {
+void Simulation::run_process(ProcessPtr process, simtime delay /* = 0.0 */) {
   auto event = this->event();
   event->add_handler(process);
-  schedule(event);
-  return process;
-}
-
-EventPtr Simulation::event() {
-  return std::make_shared<Event>(shared_from_this());
+  event->trigger(delay);
 }
 
 EventPtr Simulation::timeout(simtime delay) {
   auto event = this->event();
-  schedule(event, delay);
+  event->trigger(delay);
   return event;
 }
 
@@ -54,10 +52,9 @@ EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   return process;
 }
 
-EventPtr Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
+void Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id, event);
   ++next_id;
-  return event;
 }
 
 bool Simulation::step() {
@@ -69,7 +66,7 @@ bool Simulation::step() {
   queued_events.pop();
   now = queued_event.time;
   auto event = queued_event.event;
-  event->fire();
+  event->process();
   return true;
 }
 
@@ -118,25 +115,34 @@ bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
 Event::Event(SimulationPtr sim) : sim(sim) {}
 
 bool Event::add_handler(ProcessPtr process) {
+  // Handler takes an additional EventPtr arg, but this is ignored by the
+  // bound function.
+  return add_handler(std::bind(&Process::resume, process));
+}
+
+bool Event::add_handler(Handler handler) {
   if (is_triggered()) {
     return false;
   }
 
   if (is_pending()) {
-    listeners.push_back(process);
+    handlers.push_back(handler);
   }
 
   return true;
 }
 
-bool Event::trigger() {
+bool Event::trigger(simtime delay /* = 0.0 */) {
   if (!is_pending()) {
     return false;
   }
 
   auto sim = this->sim.lock();
-  sim->schedule(shared_from_this());
-  state = State::Triggered;
+  sim->schedule(shared_from_this(), delay);
+
+  if (delay == 0.0) {
+    state = State::Triggered;
+  }
 
   return true;
 }
@@ -147,25 +153,25 @@ bool Event::abort() {
   }
 
   state = State::Aborted;
-  listeners.clear();
+  handlers.clear();
 
   Aborted();
 
   return true;
 }
 
-void Event::fire() {
+void Event::process() {
   if (is_aborted() || is_processed()) {
     return;
   }
 
   state = State::Processed;
 
-  for (auto &proc : listeners) {
-    proc->resume();
+  for (auto &handler : handlers) {
+    handler(shared_from_this());
   }
 
-  listeners.clear();
+  handlers.clear();
 }
 
 bool Event::is_pending() { return state == State::Pending; }
