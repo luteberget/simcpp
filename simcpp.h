@@ -12,7 +12,13 @@
 #include "protothread.h"
 
 /**
+ * Wait for an event inside the Run method of a process.
  *
+ * If the event is pending, the process is paused until it is processed. If the
+ * event is already triggered or processed, the process is not paused. If the
+ * event is already aborted, the process is paused indefinitely.
+ *
+ * @param event Event to wait for.
  */
 #define PROC_WAIT_FOR(event)                                                   \
   do {                                                                         \
