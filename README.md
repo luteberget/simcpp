@@ -342,7 +342,7 @@ public:
 
 ## Copyright and License
 
-Copyright © 2021 Bjørnar Steinnes Luteberget.
+Copyright © 2021 Bjørnar Steinnes Luteberget, Felix Schütz.
 
 Licensed under the MIT License.
 See the LICENSE file for details.
