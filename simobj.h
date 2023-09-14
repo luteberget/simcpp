@@ -13,10 +13,15 @@ public:                                                                        \
     this->NAM##_event = std::make_shared<Event>(env);                          \
   }
 
-class EnvObj {
-protected:
-  shared_ptr<Simulation> env;
 
-public:
-  EnvObj(shared_ptr<Simulation> s) : env(s) {}
-};
+namespace simcpp {
+
+    class EnvObj {
+    protected:
+        std::shared_ptr<Simulation> env;
+
+    public:
+        explicit EnvObj(const std::shared_ptr<Simulation>& s) : env(s) {}
+    };
+
+}

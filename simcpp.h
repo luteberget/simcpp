@@ -92,7 +92,7 @@ public:
    * @param process Process to be run.
    * @param delay Delay after which to run the process.
    */
-  void run_process(ProcessPtr process, simtime delay = 0.0);
+  void run_process(const ProcessPtr& process, simtime delay = 0.0);
 
   /**
    * Construct an event.
@@ -142,7 +142,7 @@ public:
    * @param event Event instance.
    * @param delay Delay after which the event is processed.
    */
-  void schedule(EventPtr event, simtime delay = 0.0);
+  void schedule(const EventPtr& event, simtime delay = 0.0);
 
   /**
    * Process the next scheduled event.
@@ -165,7 +165,7 @@ public:
    * @return Whether the event was triggered. If no scheduled events are left or
    * the event is aborted, this is not the case.
    */
-  bool advance_to(EventPtr event);
+  bool advance_to(const EventPtr& event);
 
   /// Run the simulation until no scheduled events are left.
   void run();
@@ -186,7 +186,7 @@ private:
     size_t id;
     EventPtr event;
 
-    QueuedEvent(simtime time, size_t id, EventPtr event);
+    QueuedEvent(simtime time, size_t id, const EventPtr& event);
 
     bool operator<(const QueuedEvent &other) const;
   };
@@ -221,7 +221,7 @@ public:
    *
    * @param sim Simulation instance.
    */
-  explicit Event(SimulationPtr sim);
+  explicit Event(const SimulationPtr& sim);
 
   /**
    * Add the resume method of a process as an handler of the event.
@@ -233,7 +233,7 @@ public:
    * @param process The process to resume when the event is processed.
    * @return Whether the event was not already triggered.
    */
-  bool add_handler(ProcessPtr process);
+  bool add_handler(const ProcessPtr& process);
 
   /**
    * Add the callback as an handler of the event.
@@ -244,7 +244,7 @@ public:
    * receives the event instance as an argument.
    * @return Whether the event was not already triggered.
    */
-  bool add_handler(Handler handler);
+  bool add_handler(const Handler& handler);
 
   /**
    * Trigger the event with a delay.
@@ -274,22 +274,22 @@ public:
   void process();
 
   /// @return Whether the event is pending.
-  bool is_pending();
+  bool is_pending() const;
 
   /**
    * @return Whether the event is triggered. Also true if the event is
    * processed.
    */
-  bool is_triggered();
+  bool is_triggered() const;
 
   /// @return Whether the event is aborted.
-  bool is_aborted();
+  bool is_aborted() const;
 
   /// @return Whether the event is processed.
-  bool is_processed();
+  bool is_processed() const;
 
   /// @return Whether the event is pending.
-  State get_state();
+  State get_state() const;
 
   /// Called when the event is aborted.
   virtual void Aborted();
@@ -316,7 +316,7 @@ public:
    *
    * @param sim Simulation instance.
    */
-  explicit Process(SimulationPtr sim);
+  explicit Process(const SimulationPtr& sim);
 
   /**
    * Resumes the process.
@@ -339,7 +339,7 @@ public:
    * @param sim Simulation instance.
    * @param n Number of times the process must be resumed before it finishes.
    */
-  Condition(SimulationPtr sim, int n);
+  Condition(const SimulationPtr& sim, int n);
 
   /**
    * Wait for the given number of resumes and then finish.

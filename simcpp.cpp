@@ -9,7 +9,7 @@ namespace simcpp {
 
 SimulationPtr Simulation::create() { return std::make_shared<Simulation>(); }
 
-void Simulation::run_process(ProcessPtr process, simtime delay /* = 0.0 */) {
+void Simulation::run_process(const ProcessPtr& process, simtime delay /* = 0.0 */) {
   auto event = this->event();
   event->add_handler(process);
   event->trigger(delay);
@@ -52,7 +52,7 @@ EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   return process;
 }
 
-void Simulation::schedule(EventPtr event, simtime delay /* = 0.0 */) {
+void Simulation::schedule(const EventPtr& event, simtime delay /* = 0.0 */) {
   queued_events.emplace(now + delay, next_id, event);
   ++next_id;
 }
@@ -78,7 +78,7 @@ void Simulation::advance_by(simtime duration) {
   now = target;
 }
 
-bool Simulation::advance_to(EventPtr event) {
+bool Simulation::advance_to(const EventPtr& event) {
   while (event->is_pending() && has_next()) {
     step();
   }
@@ -99,7 +99,7 @@ simtime Simulation::peek_next_time() { return queued_events.top().time; }
 
 /* Simulation::QueuedEvent */
 
-Simulation::QueuedEvent::QueuedEvent(simtime time, size_t id, EventPtr event)
+Simulation::QueuedEvent::QueuedEvent(simtime time, size_t id, const EventPtr& event)
     : time(time), id(id), event(event) {}
 
 bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
@@ -112,15 +112,15 @@ bool Simulation::QueuedEvent::operator<(const QueuedEvent &other) const {
 
 /* Event */
 
-Event::Event(SimulationPtr sim) : sim(sim) {}
+Event::Event(const SimulationPtr& sim) : sim(sim) {}
 
-bool Event::add_handler(ProcessPtr process) {
+bool Event::add_handler(const ProcessPtr& process) {
   // Handler takes an additional EventPtr arg, but this is ignored by the
   // bound function.
   return add_handler(std::bind(&Process::resume, process));
 }
 
-bool Event::add_handler(Handler handler) {
+bool Event::add_handler(const Handler& handler) {
   if (is_triggered()) {
     return false;
   }
@@ -167,30 +167,30 @@ void Event::process() {
 
   state = State::Processed;
 
-  for (auto &handler : handlers) {
+  for (const auto& handler : handlers) {
     handler(shared_from_this());
   }
 
   handlers.clear();
 }
 
-bool Event::is_pending() { return state == State::Pending; }
+bool Event::is_pending() const { return state == State::Pending; }
 
-bool Event::is_triggered() {
+bool Event::is_triggered() const {
   return state == State::Triggered || state == State::Processed;
 }
 
-bool Event::is_processed() { return state == State::Processed; }
+bool Event::is_processed() const { return state == State::Processed; }
 
-bool Event::is_aborted() { return state == State::Aborted; }
+bool Event::is_aborted() const { return state == State::Aborted; }
 
-Event::State Event::get_state() { return state; }
+Event::State Event::get_state() const { return state; }
 
 void Event::Aborted() {}
 
 /* Process */
 
-Process::Process(SimulationPtr sim) : Event(sim), Protothread() {}
+Process::Process(const SimulationPtr& sim) : Event(sim), Protothread() {}
 
 void Process::resume() {
   // Is the process already finished?
@@ -213,7 +213,7 @@ ProcessPtr Process::shared_from_this() {
 
 /* Condition */
 
-Condition::Condition(SimulationPtr sim, int n) : Process(sim), n(n) {}
+Condition::Condition(const SimulationPtr& sim, int n) : Process(sim), n(n) {}
 
 bool Condition::Run() {
   PT_BEGIN();
