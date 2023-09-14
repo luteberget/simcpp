@@ -171,13 +171,13 @@ public:
   void run();
 
   /// @return Current simulation time.
-  simtime get_now();
+  simtime get_now() const;
 
   /// @return Whether a scheduled event is left.
-  bool has_next();
+  bool has_next() const;
 
   /// @return Time at which the next event is scheduled.
-  simtime peek_next_time();
+  simtime peek_next_time() const;
 
 private:
   class QueuedEvent {

@@ -23,7 +23,7 @@ EventPtr Simulation::timeout(simtime delay) {
 
 EventPtr Simulation::any_of(std::initializer_list<EventPtr> events) {
   int n = 1;
-  for (auto &event : events) {
+  for (const auto &event : events) {
     if (event->is_triggered()) {
       n = 0;
       break;
@@ -39,7 +39,7 @@ EventPtr Simulation::any_of(std::initializer_list<EventPtr> events) {
 
 EventPtr Simulation::all_of(std::initializer_list<EventPtr> events) {
   int n = 0;
-  for (auto &event : events) {
+  for (const auto &event : events) {
     if (!event->is_triggered()) {
       ++n;
     }
@@ -87,15 +87,14 @@ bool Simulation::advance_to(const EventPtr& event) {
 }
 
 void Simulation::run() {
-  while (step()) {
-  }
+    while (step());
 }
 
-simtime Simulation::get_now() { return now; }
+simtime Simulation::get_now() const { return now; }
 
-bool Simulation::has_next() { return !queued_events.empty(); }
+bool Simulation::has_next() const { return !queued_events.empty(); }
 
-simtime Simulation::peek_next_time() { return queued_events.top().time; }
+simtime Simulation::peek_next_time() const { return queued_events.top().time; }
 
 /* Simulation::QueuedEvent */
 
