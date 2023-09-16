@@ -22,6 +22,7 @@ namespace simcpp {
 
     public:
         explicit EnvObj(const std::shared_ptr<Simulation>& s) : env(s) {}
+        virtual ~EnvObj() = default;
     };
 
 }
