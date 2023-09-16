@@ -8,12 +8,12 @@ private:                                                                       \
   TYP NAM = VAL;                                                               \
                                                                                \
 public:                                                                        \
-  simcpp::EventPtr NAM##_event{std::make_shared<simcpp::Event>(env)};                          \
+  simcpp::EventPtr NAM##_event{std::make_shared<simcpp::Event>(env)};          \
   TYP get_##NAM() const { return this->NAM; }                                  \
   void set_##NAM(TYP v) {                                                      \
     this->NAM = v;                                                             \
     this->env->schedule(this->NAM##_event);                                    \
-    this->NAM##_event = std::make_shared<simcpp::Event>(env);                          \
+    this->NAM##_event = std::make_shared<simcpp::Event>(env);                  \
   }
 
 
