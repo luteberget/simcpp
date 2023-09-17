@@ -88,7 +88,9 @@ class Protothread
 public:
     // Construct a new protothread that will start from the beginning
     // of its Run() function.
-    Protothread() : _ptLine(0) { }
+    Protothread() = default;
+
+    virtual ~Protothread() = default;
 
     // Restart protothread.
     void Restart() { _ptLine = 0; }
@@ -100,7 +102,7 @@ public:
 
     // Return true if the protothread is running or waiting, false if it has
     // ended or exited.
-    bool IsRunning() { return _ptLine != LineNumberInvalid; }
+    bool IsRunning() const { return _ptLine != LineNumberInvalid; }
 
     // Run next part of protothread or return immediately if it's still
     // waiting. Return true if protothread is still running, false if it
@@ -110,14 +112,14 @@ public:
 protected:
     // Used to store a protothread's position (what Dunkels calls a
     // "local continuation").
-    typedef unsigned short LineNumber;
+    using LineNumber = unsigned short;
 
     // An invalid line number, used to mark the protothread has ended.
     static const LineNumber LineNumberInvalid = (LineNumber)(-1);
 
     // Stores the protothread's position (by storing the line number of
     // the last PT_WAIT, which is then switched on at the next Run).
-    LineNumber _ptLine;
+    LineNumber _ptLine = 0;
 };
 
 // Declare start of protothread (use at start of Run() implementation).
